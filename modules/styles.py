@@ -12,18 +12,24 @@ def apply_styles() -> None:
         [data-testid="stSidebar"] .stButton button {background:#00a86b;color:#fff;border:0;width:100%;}
         .block-container {max-width:1500px;padding-top:1.5rem;padding-bottom:3rem;}
         h1,h2,h3 {color:#071b35;letter-spacing:-.02em;}
-        .brand {font-size:1.55rem;font-weight:900;line-height:1.05;color:#fff;margin:10px 0 4px;}
+        .brand-wrap {display:flex;align-items:center;gap:11px;margin:10px 0 5px;}
+        .brand-wrap .kaironix-symbol {width:48px;height:48px;flex:0 0 48px;}
+        .brand {font-size:1.5rem;font-weight:900;line-height:1.05;color:#fff;}
         .brand span {color:#28e0a0;}
+        .login-symbol {display:flex;justify-content:center;margin-bottom:10px;}
+        .login-symbol .kaironix-symbol {width:72px;height:72px;filter:drop-shadow(0 8px 14px rgba(0,80,60,.16));}
         .eyebrow {font-size:.78rem;font-weight:800;letter-spacing:.16em;color:#008f5a;text-transform:uppercase;}
         .page-title {font-size:2.2rem;font-weight:850;color:#071b35;margin:.15rem 0 .1rem;}
         .page-subtitle {color:#52657b;margin-bottom:1rem;}
-        .metric-card {background:#fff;border:1px solid #dae5e0;border-radius:18px;padding:18px;min-height:118px;box-shadow:0 8px 22px rgba(12,55,43,.05);overflow:hidden;}
-        .metric-icon {width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#e5f8f0;font-size:1.4rem;float:left;margin-right:14px;}
+        .metric-card {background:#fff;border:1px solid #dae5e0;border-radius:18px;padding:18px;min-height:145px;box-shadow:0 8px 22px rgba(12,55,43,.05);overflow:hidden;display:flex;flex-direction:column;justify-content:center;}
+        .metric-main {display:grid;grid-template-columns:54px minmax(0,1fr);gap:13px;align-items:center;}
+        .metric-copy {min-width:0;}
+        .metric-icon {width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e5f8f0;font-size:1.45rem;margin:0;}
         .metric-icon .pro-icon {width:38px;height:30px;display:block;}
         .metric-icon .truck-photo {width:46px;height:38px;object-fit:contain;mix-blend-mode:multiply;}
         .metric-value {font-size:2rem;font-weight:900;color:#071b35;line-height:1;}
-        .metric-label {font-weight:800;color:#071b35;margin-top:6px;overflow-wrap:anywhere;line-height:1.2;}
-        .metric-hint {font-size:.83rem;color:#687b8d;margin-top:7px;}
+        .metric-label {font-size:.98rem;font-weight:850;color:#071b35;margin-top:7px;line-height:1.2;white-space:normal;}
+        .metric-hint {font-size:.83rem;color:#687b8d;margin-top:13px;line-height:1.25;min-height:1.1em;}
         .panel {background:#fff;border:1px solid #dae5e0;border-radius:18px;padding:18px;box-shadow:0 8px 22px rgba(12,55,43,.04);}
         .role-pill {display:inline-block;padding:4px 10px;border-radius:999px;background:#dff8ed;color:#006747;font-size:.78rem;font-weight:800;}
         .status-ok {color:#008f5a;font-weight:800;}
@@ -57,11 +63,14 @@ def apply_styles() -> None:
         @media (max-width: 700px) {
           .block-container {padding:1rem .8rem 2rem;}
           .page-title {font-size:1.65rem;}
-          .metric-card {min-height:112px;padding:15px;}
+          .metric-card {min-height:132px;padding:15px;}
+          .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
+          .metric-icon {width:48px;height:48px;}
         }
         @media (min-width: 701px) and (max-width: 1200px) {
-          .metric-card {padding:14px;min-height:126px;}
-          .metric-icon {float:none;margin:0 0 8px 0;}
+          .metric-card {padding:14px;min-height:140px;}
+          .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
+          .metric-icon {width:48px;height:48px;}
           .metric-value {font-size:1.7rem;}
         }
         </style>
@@ -72,8 +81,9 @@ def apply_styles() -> None:
 
 def metric_card(icon: str, value, label: str, hint: str = "") -> None:
     st.markdown(
-        f"""<div class="metric-card"><div class="metric-icon">{icon}</div>
-        <div class="metric-value">{value}</div><div class="metric-label">{label}</div>
+        f"""<div class="metric-card"><div class="metric-main">
+        <div class="metric-icon">{icon}</div><div class="metric-copy">
+        <div class="metric-value">{value}</div><div class="metric-label">{label}</div></div></div>
         <div class="metric-hint">{hint}</div></div>""",
         unsafe_allow_html=True,
     )

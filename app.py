@@ -28,6 +28,15 @@ MASTER_UNITS = [
 ]
 
 
+def kaironix_icon() -> str:
+    return '''<svg class="kaironix-symbol" viewBox="0 0 72 72" role="img" aria-label="Símbolo Kaironix">
+      <defs><linearGradient id="kxg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#28e0a0"/><stop offset="1" stop-color="#008f68"/></linearGradient></defs>
+      <path d="M36 4 62 15v19c0 17-10 28-26 34C20 62 10 51 10 34V15z" fill="#071b35" stroke="url(#kxg)" stroke-width="3"/>
+      <path d="M26 20v32M27 37l18-17M27 37l19 16" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="26" cy="20" r="3.5" fill="#28e0a0"/><circle cx="45" cy="20" r="3.5" fill="#28e0a0"/><circle cx="46" cy="53" r="3.5" fill="#28e0a0"/>
+    </svg>'''
+
+
 @st.cache_data(show_spinner=False)
 def ransa_truck_image() -> str:
     image_path = Path(__file__).with_name("camion_ransa.png")
@@ -64,7 +73,8 @@ def professional_icon(name: str) -> str:
     return icons[name]
 
 
-st.set_page_config(page_title="Kaironix SSOMA 360", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
+LOGO_PATH = Path(__file__).with_name("kaironix_icon.svg")
+st.set_page_config(page_title="Kaironix SSOMA 360", page_icon=str(LOGO_PATH), layout="wide", initial_sidebar_state="expanded")
 apply_styles()
 
 
@@ -88,8 +98,8 @@ def login_screen() -> None:
     left, center, right = st.columns([1.2, 1, 1.2])
     with center:
         st.markdown(
-            """<div style="text-align:center;margin-bottom:20px">
-            <div style="font-size:3rem">🛡️</div>
+            f"""<div style="text-align:center;margin-bottom:20px">
+            <div class="login-symbol">{kaironix_icon()}</div>
             <h1 style="margin:0">Kaironix <span style="color:#00a86b">SSOMA 360</span></h1>
             <p style="color:#607286">Control preventivo de flota</p></div>""",
             unsafe_allow_html=True,
@@ -125,7 +135,7 @@ def load_session_profile() -> dict:
 
 def sidebar(profile: dict) -> str:
     role = profile.get("rol", "Consulta")
-    st.sidebar.markdown('<div class="brand">🛡️ Kaironix<br><span>SSOMA 360</span></div>', unsafe_allow_html=True)
+    st.sidebar.markdown(f'<div class="brand-wrap">{kaironix_icon()}<div class="brand">Kaironix<br><span>SSOMA 360</span></div></div>', unsafe_allow_html=True)
     st.sidebar.caption("Piloto · CBC Huachipa")
     st.sidebar.markdown("---")
     pages = ["Inicio", "Unidades", "Nueva inspección", "Hallazgos", "Evidencias", "Reportes"]
