@@ -38,6 +38,12 @@ def apply_styles() -> None:
         .equipment-row {display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px;margin:9px 0 5px;color:#071b35;}
         .equipment-row strong {font-size:.98rem;}
         .equipment-row span {font-size:.88rem;color:#52657b;font-weight:750;}
+        .inspection-icon {display:flex;align-items:center;gap:10px;background:#f4f8f6;border:1px solid #dce8e3;border-radius:14px;padding:10px 12px;margin-bottom:8px;}
+        .inspection-icon .pro-icon {width:38px;height:38px;}
+        .inspection-icon strong {color:#071b35;font-size:1rem;}
+        .score-box {display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;padding:9px 14px;min-height:66px;}
+        .score-box b {font-size:1.55rem;line-height:1;}.score-box span {font-size:.76rem;font-weight:850;margin-top:5px;text-transform:uppercase;}
+        .score-box.ok {background:#dff8ed;color:#007c54;}.score-box.bad {background:#fff1dc;color:#a56800;}
         .ransa-tag {background:#007953;color:#fff;font-weight:900;font-size:.7rem;letter-spacing:.09em;padding:5px 8px;border-radius:6px;}
         .truck-plate {font-size:1.35rem;font-weight:900;color:#071b35;letter-spacing:.06em;margin:5px 0;}
         .truck-meta {display:flex;justify-content:space-between;color:#607286;font-size:.82rem;border-bottom:1px solid #edf2f0;padding-bottom:10px;}

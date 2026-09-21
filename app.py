@@ -293,7 +293,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
 
 
 def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
-    page_header("VERIFICACIÓN OPERATIVA", "Nueva inspección", "Registra la evaluación preventiva antes de la salida de la unidad.")
+    page_header("VERIFICACIÓN OPERATIVA · PILOTO", "Nueva inspección", "Verifica los implementos obligatorios antes de la salida del camión.")
     if unidades.empty:
         st.warning("Primero registra por lo menos una unidad.")
         return
@@ -301,34 +301,59 @@ def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
     if not options:
         st.warning("No existen unidades activas.")
         return
-    with st.form("inspection_form", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        selected = c1.selectbox("Unidad *", list(options))
-        inspection_date = c2.date_input("Fecha", value=date.today())
-        km = c3.number_input("Kilometraje", min_value=0, step=1)
-        st.markdown("#### Lista de verificación")
+    with st.container(border=True):
+        c1, c2 = st.columns([1.4, 1])
+        selected = c1.selectbox("Camión *", list(options))
+        inspection_date = c2.date_input("Fecha de inspección", value=date.today())
+        st.markdown("#### Implementos de seguridad")
         a, b, c, d = st.columns(4)
-        conos = a.checkbox("Conos")
-        tacos = a.checkbox("Tacos")
-        botiquin = b.checkbox("Botiquín")
-        extintor = b.checkbox("Extintor")
-        luces = c.checkbox("Luces")
-        neumaticos = c.checkbox("Neumáticos")
-        cinturones = d.checkbox("Cinturones")
-        documentos = d.checkbox("Documentos")
+        with a:
+            st.markdown(f'<div class="inspection-icon">{professional_icon("cone")}<strong>Conos</strong></div>', unsafe_allow_html=True)
+            conos_cantidad = st.number_input("Cantidad de conos", min_value=0, max_value=10, value=0, step=1)
+            st.caption("Mínimo requerido: 2")
+        with b:
+            st.markdown(f'<div class="inspection-icon">{professional_icon("chock")}<strong>Tacos</strong></div>', unsafe_allow_html=True)
+            tacos_cantidad = st.number_input("Cantidad de tacos", min_value=0, max_value=10, value=0, step=1)
+            st.caption("Mínimo requerido: 2")
+        with c:
+            st.markdown(f'<div class="inspection-icon">{professional_icon("firstaid")}<strong>Botiquín</strong></div>', unsafe_allow_html=True)
+            botiquin_estado = st.selectbox("Estado del botiquín", ["No tiene", "Incompleto", "Completo y vigente"])
+            st.caption("Debe estar completo y vigente")
+        with d:
+            st.markdown(f'<div class="inspection-icon">{professional_icon("extinguisher")}<strong>Extintor</strong></div>', unsafe_allow_html=True)
+            tiene_extintor = st.selectbox("¿Tiene extintor?", ["No", "Sí"])
+            extintor_anio = st.number_input("Año de vencimiento", min_value=date.today().year - 5, max_value=date.today().year + 10, value=date.today().year, step=1)
+
+        cumple_conos = conos_cantidad >= 2
+        cumple_tacos = tacos_cantidad >= 2
+        cumple_botiquin = botiquin_estado == "Completo y vigente"
+        cumple_extintor = tiene_extintor == "Sí" and extintor_anio >= date.today().year
+        criterios = [cumple_conos, cumple_tacos, cumple_botiquin, cumple_extintor]
+        porcentaje = int(sum(criterios) * 25)
+        resultado = "Conforme" if porcentaje == 100 else "Observada"
+
+        st.markdown("#### Resultado de la evaluación")
+        p1, p2 = st.columns([3, 1])
+        with p1:
+            st.progress(porcentaje / 100)
+            st.caption("Cada implemento conforme representa 25% del cumplimiento.")
+        with p2:
+            status_class = "ok" if resultado == "Conforme" else "bad"
+            st.markdown(f'<div class="score-box {status_class}"><b>{porcentaje}%</b><span>{resultado}</span></div>', unsafe_allow_html=True)
+
+        if tiene_extintor == "Sí" and extintor_anio < date.today().year:
+            st.error(f"El extintor está vencido desde el año {extintor_anio}.")
         observacion = st.text_area("Observación / acción inmediata")
         evidence = st.file_uploader("Evidencia fotográfica (opcional)", type=["jpg", "jpeg", "png", "webp"])
-        submitted = st.form_submit_button("Guardar inspección", type="primary", use_container_width=True)
+        submitted = st.button("Guardar inspección", type="primary", use_container_width=True)
     if submitted:
-        checks = [conos, tacos, botiquin, extintor, luces, neumaticos, cinturones, documentos]
-        resultado = "Conforme" if all(checks) else "Observada"
         ok_upload, evidence_url = db.upload_evidence(evidence, auth.current_auth().get("user_id", ""))
         if not ok_upload:
             st.error(evidence_url); return
         unit = options[selected]
-        payload = {"unidad_id": int(unit["id"]), "placa": unit["placa"], "fecha": inspection_date.isoformat(), "inspector_id": auth.current_auth().get("user_id"), "inspector_nombre": profile.get("nombre"), "kilometraje": km, "conos": conos, "tacos": tacos, "botiquin": botiquin, "extintor": extintor, "luces": luces, "neumaticos": neumaticos, "cinturones": cinturones, "documentos": documentos, "resultado": resultado, "observacion": observacion, "evidencia_url": evidence_url}
+        payload = {"unidad_id": int(unit["id"]), "placa": unit["placa"], "fecha": inspection_date.isoformat(), "inspector_id": auth.current_auth().get("user_id"), "inspector_nombre": profile.get("nombre"), "conos": cumple_conos, "tacos": cumple_tacos, "botiquin": cumple_botiquin, "extintor": cumple_extintor, "conos_cantidad": int(conos_cantidad), "tacos_cantidad": int(tacos_cantidad), "botiquin_estado": botiquin_estado, "extintor_tiene": tiene_extintor == "Sí", "extintor_anio_vencimiento": int(extintor_anio), "porcentaje_cumplimiento": porcentaje, "resultado": resultado, "observacion": observacion, "evidencia_url": evidence_url}
         ok, msg = db.insert("inspecciones", payload)
-        (st.success if ok else st.error)(f"{msg} Resultado: {resultado}" if ok else msg)
+        (st.success if ok else st.error)(f"{msg} Resultado: {resultado} ({porcentaje}%)." if ok else msg)
         if ok:
             if resultado == "Observada":
                 st.warning("La unidad quedó observada. Registra el hallazgo y su responsable.")
