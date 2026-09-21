@@ -50,6 +50,17 @@ def apply_styles() -> None:
         .score-box {display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;padding:9px 14px;min-height:66px;}
         .score-box b {font-size:1.55rem;line-height:1;}.score-box span {font-size:.76rem;font-weight:850;margin-top:5px;text-transform:uppercase;}
         .score-box.ok {background:#dff8ed;color:#007c54;}.score-box.bad {background:#fff1dc;color:#a56800;}
+        .findings-empty {background:linear-gradient(135deg,#ffffff 0%,#edf9f4 100%);border:1px solid #d4e8df;border-radius:22px;padding:42px 24px;text-align:center;box-shadow:0 10px 28px rgba(0,83,61,.06);margin-top:18px;}
+        .findings-empty-icon {width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;background:#dff8ed;color:#008f68;font-size:2rem;font-weight:900;border:8px solid #f4fcf8;}
+        .findings-empty h3 {margin:4px 0 8px}.findings-empty p {color:#607286;max-width:650px;margin:0 auto 20px;}
+        .empty-flow {display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.empty-flow span {background:#fff;border:1px solid #d6e6df;border-radius:999px;padding:7px 13px;color:#31516a;font-size:.82rem;font-weight:800;}
+        .finding-card {background:#fff;border:1px solid #dce7e2;border-left:6px solid #7e92a4;border-radius:16px;padding:16px 18px;margin:10px 0;box-shadow:0 7px 18px rgba(12,55,43,.045);}
+        .finding-card.low {border-left-color:#4aa67b}.finding-card.medium {border-left-color:#f5a623}.finding-card.high {border-left-color:#ed6a3a}.finding-card.critical {border-left-color:#d92d20;}
+        .finding-head {display:flex;justify-content:space-between;align-items:center;gap:12px}.finding-head b {font-size:1.12rem;color:#071b35}.finding-id {color:#7b8d9e;font-size:.78rem;font-weight:800;margin-right:9px;}
+        .criticality-pill,.state-pill {border-radius:999px;padding:5px 10px;background:#eef4f1;font-size:.73rem;font-weight:850;color:#304d62;}
+        .finding-card.critical .criticality-pill {background:#fde7e5;color:#b42318}.finding-card.high .criticality-pill {background:#fff0e8;color:#b54708}.finding-card.medium .criticality-pill {background:#fff5d9;color:#8a5b00}.finding-card.low .criticality-pill {background:#e7f7ef;color:#08754f}
+        .finding-category {font-size:.76rem;font-weight:850;color:#008f68;text-transform:uppercase;letter-spacing:.08em;margin:9px 0 3px}.finding-card p {color:#3e556b;margin:5px 0 13px;}
+        .finding-footer {display:flex;gap:18px;align-items:center;flex-wrap:wrap;border-top:1px solid #edf2ef;padding-top:11px;color:#607286;font-size:.8rem}.finding-footer .state-pill {margin-left:auto;}
         .ransa-tag {background:#007953;color:#fff;font-weight:900;font-size:.7rem;letter-spacing:.09em;padding:5px 8px;border-radius:6px;}
         .truck-plate {font-size:1.35rem;font-weight:900;color:#071b35;letter-spacing:.06em;margin:5px 0;}
         .truck-meta {display:flex;justify-content:space-between;color:#607286;font-size:.82rem;border-bottom:1px solid #edf2f0;padding-bottom:10px;}

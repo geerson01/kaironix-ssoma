@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from datetime import date, timedelta
+from html import escape
 from io import BytesIO
 from pathlib import Path
 
@@ -371,40 +372,81 @@ def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
 
 
 def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool) -> None:
-    page_header("GESTIÓN PREVENTIVA", "Hallazgos", "Asigna responsables y controla la subsanación de observaciones.")
+    page_header("CENTRO DE CONTROL PREVENTIVO", "Hallazgos", "Prioriza riesgos, asigna responsables y controla cada acción hasta su cierre.")
+
+    findings = hallazgos.copy()
+    if not findings.empty:
+        findings["fecha_compromiso_dt"] = pd.to_datetime(findings.get("fecha_compromiso"), errors="coerce")
+    abiertos = findings[findings.get("estado", pd.Series(dtype=str)) != "Subsanado"] if not findings.empty else pd.DataFrame()
+    total_abiertos = len(abiertos)
+    alta_critica = int(abiertos.get("criticidad", pd.Series(dtype=str)).isin(["Alta", "Crítica"]).sum()) if not abiertos.empty else 0
+    vencidos = int((abiertos.get("fecha_compromiso_dt", pd.Series(dtype="datetime64[ns]")) < pd.Timestamp.today().normalize()).sum()) if not abiertos.empty else 0
+    subsanados = int((findings.get("estado", pd.Series(dtype=str)) == "Subsanado").sum()) if not findings.empty else 0
+
+    k1, k2, k3, k4 = st.columns(4)
+    summary = [
+        ("⚑", total_abiertos, "Hallazgos abiertos", "Requieren seguimiento"),
+        ("!", alta_critica, "Alta prioridad", "Alta o crítica"),
+        ("◷", vencidos, "Fuera de plazo", "Acción inmediata"),
+        ("✓", subsanados, "Subsanados", "Cierre verificado"),
+    ]
+    for col, card in zip((k1, k2, k3, k4), summary):
+        with col:
+            metric_card(*card)
+
     if can_edit:
         observed = inspecciones[inspecciones.get("resultado", pd.Series(dtype=str)) == "Observada"] if not inspecciones.empty else pd.DataFrame()
-        with st.expander("➕ Registrar hallazgo", expanded=hallazgos.empty):
+        with st.expander("＋ Registrar nuevo hallazgo", expanded=hallazgos.empty):
             with st.form("finding_form", clear_on_submit=True):
                 c1, c2, c3 = st.columns(3)
                 ref_options = ["Sin inspección vinculada"] + ([f"#{int(r['id'])} · {r['placa']} · {r['fecha']}" for _, r in observed.iterrows()] if not observed.empty else [])
                 ref = c1.selectbox("Inspección relacionada", ref_options)
                 placa = c2.text_input("Placa *").upper()
-                categoria = c3.selectbox("Categoría", ["Implementos", "Documentación", "Mecánico", "Neumáticos", "Seguridad", "Limpieza", "Otro"])
-                descripcion = st.text_area("Descripción del hallazgo *")
+                categoria = c3.selectbox("Categoría", ["Implementos", "Extintor vencido", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"])
+                descripcion = st.text_area("Descripción concreta del hallazgo *", height=110, placeholder="Describe qué se encontró, el riesgo y la acción inmediata requerida.")
                 c4, c5, c6 = st.columns(3)
                 criticidad = c4.selectbox("Criticidad", ["Baja", "Media", "Alta", "Crítica"])
-                responsable = c5.text_input("Responsable")
+                responsable = c5.text_input("Responsable *", placeholder="Nombre del responsable")
                 compromiso = c6.date_input("Fecha compromiso", date.today() + timedelta(days=1))
                 if st.form_submit_button("Guardar hallazgo", type="primary"):
                     inspection_id = None if ref.startswith("Sin") else int(ref.split("#")[1].split(" ")[0])
-                    if not placa or not descripcion:
-                        st.error("Completa la placa y la descripción.")
+                    if not placa or not descripcion or not responsable:
+                        st.error("Completa placa, descripción y responsable.")
                     else:
                         ok, msg = db.insert("hallazgos", {"inspeccion_id": inspection_id, "placa": placa, "fecha": date.today().isoformat(), "categoria": categoria, "descripcion": descripcion, "criticidad": criticidad, "responsable": responsable, "fecha_compromiso": compromiso.isoformat(), "estado": "Abierto", "created_by": auth.current_auth().get("user_id")})
                         (st.success if ok else st.error)(msg)
                         if ok: load_all.clear(); st.rerun()
     if hallazgos.empty:
-        st.info("No hay hallazgos registrados."); return
+        st.markdown('''<div class="findings-empty"><div class="findings-empty-icon">✓</div>
+        <h3>Flota sin hallazgos registrados</h3><p>Cuando una inspección resulte observada, registra aquí el riesgo, responsable y fecha compromiso.</p>
+        <div class="empty-flow"><span>1 · Detectar</span><span>2 · Asignar</span><span>3 · Subsanar</span></div></div>''', unsafe_allow_html=True)
+        return
+
+    st.markdown("### Seguimiento activo")
     f1, f2 = st.columns(2)
     status = f1.multiselect("Estado", ["Abierto", "En proceso", "Subsanado"], default=["Abierto", "En proceso"])
     criticality = f2.multiselect("Criticidad", ["Baja", "Media", "Alta", "Crítica"])
     view = hallazgos.copy()
     if status: view = view[view["estado"].isin(status)]
     if criticality: view = view[view["criticidad"].isin(criticality)]
-    st.dataframe(view[[c for c in ["id", "fecha", "placa", "categoria", "descripcion", "criticidad", "responsable", "fecha_compromiso", "estado"] if c in view]], use_container_width=True, hide_index=True)
+
+    if view.empty:
+        st.info("No hay hallazgos que coincidan con los filtros seleccionados.")
+    else:
+        for _, row in view.head(20).iterrows():
+            crit = str(row.get("criticidad", "Baja"))
+            crit_class = {"Baja": "low", "Media": "medium", "Alta": "high", "Crítica": "critical"}.get(crit, "low")
+            st.markdown(f'''<div class="finding-card {crit_class}">
+              <div class="finding-head"><div><span class="finding-id">#{int(row.get("id", 0))}</span><b>{escape(str(row.get("placa", "")))}</b></div>
+              <span class="criticality-pill">{escape(crit)}</span></div>
+              <div class="finding-category">{escape(str(row.get("categoria", "")))}</div>
+              <p>{escape(str(row.get("descripcion", "")))}</p>
+              <div class="finding-footer"><span>Responsable: <b>{escape(str(row.get("responsable", "Sin asignar")))}</b></span>
+              <span>Compromiso: <b>{escape(str(row.get("fecha_compromiso", "")))}</b></span>
+              <span class="state-pill">{escape(str(row.get("estado", "Abierto")))}</span></div>
+            </div>''', unsafe_allow_html=True)
     if can_edit and not view.empty:
-        st.markdown("#### Actualizar estado")
+        st.markdown("#### Actualizar seguimiento")
         c1, c2, c3 = st.columns([1, 1, 1])
         record_id = c1.selectbox("Hallazgo", view["id"].tolist(), format_func=lambda x: f"#{x}")
         new_status = c2.selectbox("Nuevo estado", ["Abierto", "En proceso", "Subsanado"])
