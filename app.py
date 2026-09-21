@@ -12,6 +12,20 @@ from modules import auth, database as db
 from modules.styles import apply_styles, metric_card, page_header
 
 
+MASTER_UNITS = [
+    ("ATG", "BYL715"), ("FF", "BXN841"), ("ACC", "BFX947"),
+    ("ACC", "BHC896"), ("ACC", "BHC897"), ("FF", "BXO712"),
+    ("ACC", "BFO868"), ("FF", "BXN844"), ("ACC", "BHD755"),
+    ("ACC", "BFP837"), ("ACC", "BHC807"), ("FF", "BXN910"),
+    ("ACC", "BHC887"), ("FF", "BXN836"), ("ACC", "BFO900"),
+    ("ACC", "BHC895"), ("ACC", "BHD713"), ("ACC", "BHC884"),
+    ("FF", "BYJ739"), ("FF", "BYG813"), ("FF", "BYG741"),
+    ("FF", "BYI783"), ("FF", "BYI781"), ("FF", "BYG838"),
+    ("FF", "BYH875"), ("FF", "BYG742"), ("FF", "BYH813"),
+    ("FF", "BYG833"),
+]
+
+
 st.set_page_config(page_title="Kaironix SSOMA 360", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
 apply_styles()
 
@@ -150,14 +164,56 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     st.download_button("⬇ Exportar información a Excel", excel_bytes({"Unidades": unidades, "Inspecciones": inspecciones, "Hallazgos": hallazgos}), "reporte_ssoma_360.xlsx", use_container_width=False)
 
 
-def units_page(unidades: pd.DataFrame, can_edit: bool) -> None:
-    page_header("MAESTRO DE FLOTA", "Unidades", "Administra las unidades sujetas a inspección.")
+def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool, is_admin: bool) -> None:
+    page_header("MAESTRO DE FLOTA", "Unidades RANSA", "Consulta las placas, tipo de unidad y estado de su última inspección.")
+
+    registered = set(unidades.get("placa", pd.Series(dtype=str)).astype(str).str.upper()) if not unidades.empty else set()
+    missing = [(tipo, placa) for tipo, placa in MASTER_UNITS if placa not in registered]
+    if is_admin and missing:
+        st.info(f"Hay {len(missing)} unidades del maestro inicial pendientes de cargar.")
+        if st.button("🚛 Cargar maestro de 28 unidades RANSA", type="primary"):
+            failures = []
+            for tipo, placa in missing:
+                ok, msg = db.insert("unidades", {
+                    "placa": placa, "tipo": tipo, "empresa": "RANSA",
+                    "agencia": "Huachipa", "estado": "Activo",
+                    "created_by": auth.current_auth().get("user_id"),
+                })
+                if not ok:
+                    failures.append(f"{placa}: {msg}")
+            load_all.clear()
+            if failures:
+                st.error("No se pudieron cargar algunas placas: " + " | ".join(failures[:3]))
+            else:
+                st.success("Maestro de unidades cargado correctamente.")
+                st.rerun()
+
+    latest_status: dict[str, str] = {}
+    if not inspecciones.empty and "placa" in inspecciones:
+        ordered = inspecciones.copy()
+        ordered["fecha"] = pd.to_datetime(ordered["fecha"], errors="coerce")
+        ordered = ordered.sort_values(["fecha", "created_at"], ascending=False).drop_duplicates("placa")
+        latest_status = dict(zip(ordered["placa"], ordered["resultado"]))
+
+    total = len(unidades)
+    conformes = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Conforme")
+    observadas = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Observada")
+    pendientes = max(total - conformes - observadas, 0)
+    c1, c2, c3, c4 = st.columns(4)
+    for col, data in zip(
+        (c1, c2, c3, c4),
+        (("🚛", total, "Flota registrada", "Huachipa"), ("○", pendientes, "Pendientes", "Sin inspección"),
+         ("✓", conformes, "Conformes", "Verificación completa"), ("⚠", observadas, "Observadas", "Requieren acción")),
+    ):
+        with col:
+            metric_card(*data)
+
     if can_edit:
-        with st.expander("➕ Registrar nueva unidad", expanded=unidades.empty):
+        with st.expander("➕ Registrar nueva unidad", expanded=False):
             with st.form("unit_form", clear_on_submit=True):
                 c1, c2, c3 = st.columns(3)
                 placa = c1.text_input("Placa *").upper().strip()
-                tipo = c2.selectbox("Tipo *", ["Fuso", "Hino/Dutro", "Accelo", "Porter", "Semi Trailer", "Trailer", "Moto", "Otro"])
+                tipo = c2.selectbox("Tipo *", ["FF", "ACC", "ATG", "HINO", "PORTER", "FLI", "SMT", "TR", "MOTO", "OTRO"])
                 empresa = c3.selectbox("Propiedad", ["RANSA", "Tercero/Spot"])
                 marca = c1.text_input("Marca")
                 modelo = c2.text_input("Modelo")
@@ -172,13 +228,30 @@ def units_page(unidades: pd.DataFrame, can_edit: bool) -> None:
                         (st.success if ok else st.error)(msg)
                         if ok:
                             load_all.clear(); st.rerun()
-    search = st.text_input("🔎 Buscar por placa, marca o tipo")
+    st.markdown("### Flota operativa")
+    search = st.text_input("🔎 Buscar por placa o tipo")
     view = unidades.copy()
     if search and not view.empty:
         mask = view.astype(str).apply(lambda row: row.str.contains(search, case=False, na=False).any(), axis=1)
         view = view[mask]
-    columns = [c for c in ["placa", "tipo", "marca", "modelo", "anio", "empresa", "agencia", "estado"] if c in view]
-    st.dataframe(view[columns] if columns else view, use_container_width=True, hide_index=True)
+    if view.empty:
+        st.warning("No hay unidades registradas en el maestro.")
+        return
+    for start in range(0, len(view), 4):
+        cols = st.columns(4)
+        for col, (_, unit) in zip(cols, view.iloc[start:start + 4].iterrows()):
+            placa = str(unit.get("placa", ""))
+            status = latest_status.get(placa, "Pendiente")
+            css_status = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending"}[status]
+            with col:
+                st.markdown(
+                    f'''<div class="truck-card">
+                    <div class="truck-top"><span class="truck-visual">🚛</span><span class="ransa-tag">RANSA</span></div>
+                    <div class="truck-plate">{placa}</div>
+                    <div class="truck-meta"><span>{unit.get("tipo", "-")}</span><span>Huachipa</span></div>
+                    <div class="fleet-status {css_status}"><span></span>{status}</div>
+                    </div>''', unsafe_allow_html=True,
+                )
 
 
 def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
@@ -354,7 +427,7 @@ can_edit = role in ("Administrador", "Inspector")
 unidades, inspecciones, hallazgos = load_all()
 
 if page == "Inicio": dashboard(unidades, inspecciones, hallazgos)
-elif page == "Unidades": units_page(unidades, can_edit)
+elif page == "Unidades": units_page(unidades, inspecciones, can_edit, role == "Administrador")
 elif page == "Nueva inspección":
     if can_edit: inspection_page(unidades, profile)
     else: st.warning("Tu perfil es de consulta y no permite registrar inspecciones.")
