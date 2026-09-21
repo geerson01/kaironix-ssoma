@@ -373,8 +373,8 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             if not latest.empty and "extintor_tiene" in latest else 0
         )
         inventory = [
-            ("cone", total_conos, "Conos", "unidades físicas"),
-            ("chock", total_tacos, "Tacos", "unidades físicas"),
+            ("cone", total_conos, "Conos", "unidades físicas registradas"),
+            ("chock", total_tacos, "Tacos", "unidades físicas registradas"),
             ("firstaid", total_botiquines, "Botiquines", "camiones equipados"),
             ("extinguisher", total_extintores, "Extintores", "camiones equipados"),
         ]
@@ -390,7 +390,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
                           <div class="inventory-copy">
                             <span>{label}</span>
                             <b>{quantity}</b>
-                            <small>{unit_label} registradas</small>
+                            <small>{unit_label}</small>
                           </div>
                         </div>""",
                         unsafe_allow_html=True,
