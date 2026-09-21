@@ -700,15 +700,42 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             st.success("La unidad no tiene hallazgos registrados.")
         else:
             for _, finding in plate_findings.sort_values("created_at", ascending=False).iterrows():
+                finding_id = int(finding.get("id", 0))
                 st.markdown(
                     f"""<div class="unit-finding">
-                      <div><b>{escape(str(finding.get("categoria", "Hallazgo")))}</b>
+                      <div><b>#{finding_id} · {escape(str(finding.get("categoria", "Hallazgo")))}</b>
                       <span>{escape(str(finding.get("estado", "Abierto")))}</span></div>
                       <p>{escape(str(finding.get("descripcion") or "Sin descripción"))}</p>
                       <small>Responsable: {escape(str(finding.get("responsable") or "Sin asignar"))} · Compromiso: {escape(str(finding.get("fecha_compromiso") or "Sin fecha"))}</small>
                     </div>""",
                     unsafe_allow_html=True,
                 )
+                if is_admin:
+                    confirm_finding_delete = st.checkbox(
+                        f"Confirmo eliminar el hallazgo #{finding_id}",
+                        key=f"confirm_delete_finding_{finding_id}",
+                        help="Elimina solo este hallazgo. La inspección, la evidencia y la placa permanecerán.",
+                    )
+                    if st.button(
+                        "🗑 Eliminar responsable/hallazgo duplicado",
+                        key=f"delete_finding_{finding_id}",
+                        disabled=not confirm_finding_delete,
+                        use_container_width=True,
+                    ):
+                        finding_ok, finding_msg = db.delete(
+                            "hallazgos",
+                            finding_id,
+                            admin=True,
+                        )
+                        if finding_ok:
+                            load_all.clear()
+                            st.success(
+                                f"Hallazgo #{finding_id} eliminado. "
+                                "La inspección y la evidencia permanecen registradas."
+                            )
+                            st.rerun()
+                        else:
+                            st.error(finding_msg)
         return
 
     total = len(unidades)
