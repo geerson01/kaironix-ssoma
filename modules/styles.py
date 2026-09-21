@@ -46,7 +46,28 @@ def apply_styles() -> None:
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] label {color:#dce8f2;font-weight:750;}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"] {background:#061a31;border:1px solid #18d79c;border-radius:13px;box-shadow:0 0 0 3px rgba(24,215,156,.08);min-height:52px;}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"]:has(input[type="password"]) {border-color:#8796ff;box-shadow:0 0 0 3px rgba(135,150,255,.08);}
-        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input {color:#fff!important;-webkit-text-fill-color:#fff!important;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"] {background:#fff!important;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input {
+          color:#071b35!important;
+          -webkit-text-fill-color:#071b35!important;
+          caret-color:#00a878!important;
+          background:#fff!important;
+          font-weight:700!important;
+          opacity:1!important;
+        }
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input::placeholder {
+          color:#718096!important;
+          -webkit-text-fill-color:#718096!important;
+          opacity:1!important;
+        }
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input:-webkit-autofill,
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input:-webkit-autofill:hover,
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input:-webkit-autofill:focus {
+          -webkit-text-fill-color:#071b35!important;
+          -webkit-box-shadow:0 0 0 1000px #fff inset!important;
+          box-shadow:0 0 0 1000px #fff inset!important;
+          caret-color:#00a878!important;
+        }
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] button[kind="primaryFormSubmit"] {margin-top:12px;background:linear-gradient(90deg,#11d89c,#29efb4);color:#022334;border:0;border-radius:13px;min-height:54px;font-size:1.02rem;font-weight:900;box-shadow:0 12px 25px rgba(20,221,161,.20);}
         .dark-login-pilot {text-align:center;color:#79e8c5;font-size:.8rem;font-weight:800;margin-top:18px;letter-spacing:.03em;}
         .eyebrow {font-size:.78rem;font-weight:800;letter-spacing:.16em;color:#008f5a;text-transform:uppercase;}
