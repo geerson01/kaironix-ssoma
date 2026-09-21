@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 from datetime import date, timedelta
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -26,16 +28,18 @@ MASTER_UNITS = [
 ]
 
 
+@st.cache_data(show_spinner=False)
+def ransa_truck_image() -> str:
+    image_path = Path(__file__).with_name("camion_ransa.png")
+    if not image_path.exists():
+        return ""
+    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    return f'<img class="truck-photo" src="data:image/png;base64,{encoded}" alt="Camión RANSA">'
+
+
 def professional_icon(name: str) -> str:
     icons = {
-        "truck": '''<svg class="pro-icon truck-svg" viewBox="0 0 72 48" aria-label="Camión RANSA">
-          <rect x="4" y="11" width="38" height="24" rx="4" fill="#ffffff" stroke="#007953" stroke-width="2"/>
-          <rect x="42" y="19" width="19" height="16" rx="3" fill="#00a86b"/>
-          <path d="M47 20h8l5 7H47z" fill="#dff8ed"/><rect x="10" y="18" width="26" height="9" rx="2" fill="#007953"/>
-          <text x="23" y="25" text-anchor="middle" font-size="7" font-weight="900" fill="white">RANSA</text>
-          <circle cx="17" cy="38" r="6" fill="#10243e"/><circle cx="17" cy="38" r="2.5" fill="#d7e1de"/>
-          <circle cx="52" cy="38" r="6" fill="#10243e"/><circle cx="52" cy="38" r="2.5" fill="#d7e1de"/>
-        </svg>''',
+        "truck": ransa_truck_image(),
         "cone": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Conos">
           <path d="M18 5h12l7 31H11z" fill="#ff7a00"/><path d="M15 19h18l2 8H13z" fill="#fff"/>
           <rect x="6" y="36" width="36" height="7" rx="3" fill="#e35300"/>

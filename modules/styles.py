@@ -20,6 +20,7 @@ def apply_styles() -> None:
         .metric-card {background:#fff;border:1px solid #dae5e0;border-radius:18px;padding:18px;min-height:118px;box-shadow:0 8px 22px rgba(12,55,43,.05);overflow:hidden;}
         .metric-icon {width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#e5f8f0;font-size:1.4rem;float:left;margin-right:14px;}
         .metric-icon .pro-icon {width:38px;height:30px;display:block;}
+        .metric-icon .truck-photo {width:46px;height:38px;object-fit:contain;mix-blend-mode:multiply;}
         .metric-value {font-size:2rem;font-weight:900;color:#071b35;line-height:1;}
         .metric-label {font-weight:800;color:#071b35;margin-top:6px;overflow-wrap:anywhere;line-height:1.2;}
         .metric-hint {font-size:.83rem;color:#687b8d;margin-top:7px;}
@@ -32,6 +33,7 @@ def apply_styles() -> None:
         .truck-top {display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
         .truck-visual {display:flex;align-items:center;width:76px;height:50px;}
         .truck-visual .pro-icon {width:72px;height:48px;display:block;}
+        .truck-visual .truck-photo {width:76px;height:50px;object-fit:contain;mix-blend-mode:multiply;}
         .pro-icon {width:32px;height:32px;display:block;flex:0 0 auto;}
         .equipment-row {display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px;margin:9px 0 5px;color:#071b35;}
         .equipment-row strong {font-size:.98rem;}
