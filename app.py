@@ -66,7 +66,7 @@ def login_background_data() -> str:
 def professional_icon(name: str) -> str:
     icons = {
         "truck": ransa_truck_image(),
-        "cone": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Conos">
+        "cone": '''<svg class="pro-icon realistic-icon cone-real" viewBox="-6 -6 76 76" aria-label="Cono de seguridad">
           <defs><linearGradient id="coneBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffad22"/><stop offset=".48" stop-color="#ff6b00"/><stop offset="1" stop-color="#d94700"/></linearGradient><linearGradient id="coneBase" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ff7b00"/><stop offset="1" stop-color="#b93600"/></linearGradient></defs>
           <ellipse cx="32" cy="57" rx="25" ry="4" fill="#0a1d2d" opacity=".18"/>
           <path d="M27 7h10l12 43H15z" fill="url(#coneBody)" stroke="#c64200" stroke-width="1.4"/>
@@ -93,16 +93,15 @@ def professional_icon(name: str) -> str:
           <rect x="21" y="31" width="23" height="11" rx="2" fill="#fff"/>
           <path d="M11 51h42" stroke="#8e1020" stroke-width="2" opacity=".45"/>
         </svg>''',
-        "extinguisher": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Extintor">
-          <defs><linearGradient id="extBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff665d"/><stop offset=".5" stop-color="#e72d25"/><stop offset="1" stop-color="#a91412"/></linearGradient></defs>
-          <ellipse cx="30" cy="59" rx="20" ry="3.5" fill="#071b35" opacity=".18"/>
-          <rect x="23" y="5" width="19" height="7" rx="2" fill="#26384a"/>
-          <path d="M39 8h12v7h-7" fill="none" stroke="#172536" stroke-width="4" stroke-linejoin="round"/>
-          <path d="M49 14c9 7 5 21 2 29" fill="none" stroke="#172536" stroke-width="4" stroke-linecap="round"/>
-          <path d="M18 13h23c5 5 7 11 7 18v21c0 5-4 8-8 8H18c-5 0-8-3-8-8V28c0-7 3-12 8-15z" fill="url(#extBody)" stroke="#9f1713" stroke-width="1.6"/>
-          <path d="M17 17c-4 10-4 27-1 37" fill="none" stroke="#ff9791" stroke-width="3" opacity=".55"/>
-          <rect x="17" y="30" width="24" height="16" rx="3" fill="#fff" stroke="#d9e1e5"/>
-          <path d="M22 35h14M22 39h10" stroke="#e42f28" stroke-width="2"/>
+        "extinguisher": '''<svg class="pro-icon realistic-icon extinguisher-real" viewBox="-24 -20 560 552" aria-label="Extintor">
+          <defs>
+            <linearGradient id="extRed" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff5b50"/><stop offset=".5" stop-color="#e2241b"/><stop offset="1" stop-color="#9f100c"/></linearGradient>
+          </defs>
+          <path fill="#17283a" d="M512 32c0-9.6-4.3-18.7-11.7-24.7S483.1-1.3 473.7.6l-160 32C301.5 35.1 292 44.3 289 56h-65V32c0-17.7-14.3-32-32-32h-32c-17.7 0-32 14.3-32 32v28.4C72.7 72.7 26.7 109.9 2.5 159.5c-5.8 11.9-.9 26.3 11.1 32.1s26.3.9 32.1-11.1C62 146.9 91.8 121.1 128 110v28.8C90.2 156.8 64 195.3 64 240v128h224V240c0-44.7-26.2-83.2-64-101.2V104h65c3 11.7 12.5 20.9 24.7 23.4l160 32c9.4 1.9 19.1-.6 26.6-6.6S512 137.6 512 128V32z"/>
+          <path fill="url(#extRed)" d="M128 138.8C90.2 156.8 64 195.3 64 240v128h224V240c0-44.7-26.2-83.2-64-101.2H128zM288 448v-32H64v32c0 35.3 28.7 64 64 64h96c35.3 0 64-28.7 64-64z"/>
+          <rect x="108" y="238" width="136" height="78" rx="12" fill="#fff" stroke="#cbd5db" stroke-width="6"/>
+          <path d="M132 262h88M132 284h62" stroke="#e2241b" stroke-width="10" stroke-linecap="round"/>
+          <path d="M108 168c-16 47-13 125-5 171" fill="none" stroke="#ff9a94" stroke-width="14" opacity=".55" stroke-linecap="round"/>
         </svg>''',
     }
     return icons[name]
@@ -348,10 +347,16 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         values = [conformes, observadas, pending]
         fig = go.Figure(go.Pie(
             values=values if sum(values) else [1],
-            labels=["Conformes", "Observadas", "Pendientes"],
+            labels=[
+                f"Conformes ({conformes})",
+                f"Observadas ({observadas})",
+                f"Pendientes ({pending})",
+            ],
             hole=.72,
             marker_colors=["#00c878", "#ff9d00", "#cbd9d5"],
-            textinfo="none",
+            textinfo="value",
+            textposition="inside",
+            textfont=dict(size=17, color="#ffffff"),
         ))
         pct = round((conformes / total * 100), 1) if total else 0
         fig.add_annotation(
@@ -362,7 +367,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         fig.update_layout(
             height=340,
             margin=dict(l=5, r=5, t=5, b=5),
-            legend=dict(orientation="h", y=-.05),
+            legend=dict(orientation="h", y=-.08, font=dict(size=12)),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
 
