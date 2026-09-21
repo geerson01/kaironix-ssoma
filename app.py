@@ -26,6 +26,40 @@ MASTER_UNITS = [
 ]
 
 
+def professional_icon(name: str) -> str:
+    icons = {
+        "truck": '''<svg class="pro-icon truck-svg" viewBox="0 0 72 48" aria-label="Camión RANSA">
+          <rect x="4" y="11" width="38" height="24" rx="4" fill="#ffffff" stroke="#007953" stroke-width="2"/>
+          <rect x="42" y="19" width="19" height="16" rx="3" fill="#00a86b"/>
+          <path d="M47 20h8l5 7H47z" fill="#dff8ed"/><rect x="10" y="18" width="26" height="9" rx="2" fill="#007953"/>
+          <text x="23" y="25" text-anchor="middle" font-size="7" font-weight="900" fill="white">RANSA</text>
+          <circle cx="17" cy="38" r="6" fill="#10243e"/><circle cx="17" cy="38" r="2.5" fill="#d7e1de"/>
+          <circle cx="52" cy="38" r="6" fill="#10243e"/><circle cx="52" cy="38" r="2.5" fill="#d7e1de"/>
+        </svg>''',
+        "cone": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Conos">
+          <path d="M18 5h12l7 31H11z" fill="#ff7a00"/><path d="M15 19h18l2 8H13z" fill="#fff"/>
+          <rect x="6" y="36" width="36" height="7" rx="3" fill="#e35300"/>
+        </svg>''',
+        "chock": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Tacos de rueda">
+          <path d="M7 37V25c12 0 19-7 24-17l10 29z" fill="#182235"/>
+          <path d="M11 30l5-2 3 9h-6zm10-6 5-4 6 17h-7z" fill="#f5b400"/>
+          <rect x="5" y="37" width="38" height="5" rx="2" fill="#0a1322"/>
+        </svg>''',
+        "firstaid": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Botiquín">
+          <rect x="5" y="13" width="38" height="29" rx="6" fill="#e43d45"/>
+          <path d="M17 13V9c0-2 2-4 4-4h6c2 0 4 2 4 4v4" fill="none" stroke="#a91f2a" stroke-width="4"/>
+          <rect x="20" y="20" width="8" height="16" rx="1" fill="#fff"/><rect x="16" y="24" width="16" height="8" rx="1" fill="#fff"/>
+        </svg>''',
+        "extinguisher": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Extintor">
+          <path d="M20 8h12l4 7v25c0 3-2 5-5 5H17c-3 0-5-2-5-5V20c0-6 3-10 8-12z" fill="#e33b32"/>
+          <rect x="18" y="4" width="14" height="6" rx="2" fill="#26354a"/><path d="M31 7h9v5h-5" fill="none" stroke="#26354a" stroke-width="3"/>
+          <path d="M36 11c7 4 5 13 3 18" fill="none" stroke="#26354a" stroke-width="3" stroke-linecap="round"/>
+          <rect x="17" y="22" width="14" height="9" rx="2" fill="#fff"/><path d="M20 26h8" stroke="#e33b32" stroke-width="2"/>
+        </svg>''',
+    }
+    return icons[name]
+
+
 st.set_page_config(page_title="Kaironix SSOMA 360", page_icon="🛡️", layout="wide", initial_sidebar_state="expanded")
 apply_styles()
 
@@ -127,7 +161,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     pending = max(total - inspected, 0)
     cols = st.columns(4)
     cards = [
-        ("🚚", total, "Unidades registradas", "Flota activa"),
+        (professional_icon("truck"), total, "Unidades registradas", "Flota activa"),
         ("✓", conformes, "Conformes", "Última inspección"),
         ("⚠", observadas, "Observadas", "Requieren subsanación"),
         ("📋", inspected, "Inspeccionadas", f"{pending} pendientes"),
@@ -147,10 +181,10 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
     with c2:
         st.subheader("Estado de implementos")
-        items = [("🦺 Conos", "conos"), ("◼️ Tacos", "tacos"), ("🧰 Botiquín", "botiquin"), ("🧯 Extintor", "extintor")]
-        for label, field in items:
+        items = [("cone", "Conos", "conos"), ("chock", "Tacos", "tacos"), ("firstaid", "Botiquín", "botiquin"), ("extinguisher", "Extintor", "extintor")]
+        for icon_name, label, field in items:
             count = int(latest[field].fillna(False).astype(bool).sum()) if not latest.empty and field in latest else 0
-            st.write(f"**{label}** — {count}/{inspected}")
+            st.markdown(f'<div class="equipment-row">{professional_icon(icon_name)}<strong>{label}</strong><span>{count}/{inspected}</span></div>', unsafe_allow_html=True)
             st.progress(count / inspected if inspected else 0)
         st.info("Las barras se actualizan con la última inspección de cada unidad.")
     with c3:
@@ -202,7 +236,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
     c1, c2, c3, c4 = st.columns(4)
     for col, data in zip(
         (c1, c2, c3, c4),
-        (("🚛", total, "Flota registrada", "Huachipa"), ("○", pendientes, "Pendientes", "Sin inspección"),
+        ((professional_icon("truck"), total, "Flota registrada", "Huachipa"), ("○", pendientes, "Pendientes", "Sin inspección"),
          ("✓", conformes, "Conformes", "Verificación completa"), ("⚠", observadas, "Observadas", "Requieren acción")),
     ):
         with col:
@@ -246,7 +280,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
             with col:
                 st.markdown(
                     f'''<div class="truck-card">
-                    <div class="truck-top"><span class="truck-visual">🚛</span><span class="ransa-tag">RANSA</span></div>
+                    <div class="truck-top"><span class="truck-visual">{professional_icon("truck")}</span><span class="ransa-tag">RANSA</span></div>
                     <div class="truck-plate">{placa}</div>
                     <div class="truck-meta"><span>{unit.get("tipo", "-")}</span><span>Huachipa</span></div>
                     <div class="fleet-status {css_status}"><span></span>{status}</div>

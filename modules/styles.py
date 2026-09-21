@@ -19,6 +19,7 @@ def apply_styles() -> None:
         .page-subtitle {color:#52657b;margin-bottom:1rem;}
         .metric-card {background:#fff;border:1px solid #dae5e0;border-radius:18px;padding:18px;min-height:118px;box-shadow:0 8px 22px rgba(12,55,43,.05);overflow:hidden;}
         .metric-icon {width:44px;height:44px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#e5f8f0;font-size:1.4rem;float:left;margin-right:14px;}
+        .metric-icon .pro-icon {width:38px;height:30px;display:block;}
         .metric-value {font-size:2rem;font-weight:900;color:#071b35;line-height:1;}
         .metric-label {font-weight:800;color:#071b35;margin-top:6px;overflow-wrap:anywhere;line-height:1.2;}
         .metric-hint {font-size:.83rem;color:#687b8d;margin-top:7px;}
@@ -29,7 +30,12 @@ def apply_styles() -> None:
         .status-bad {color:#d92d20;font-weight:800;}
         .truck-card {background:#fff;border:1px solid #d9e6e1;border-radius:18px;padding:16px;margin:5px 0 14px;box-shadow:0 8px 24px rgba(0,74,57,.07);min-height:178px;}
         .truck-top {display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-        .truck-visual {font-size:2.35rem;filter:saturate(.85);}
+        .truck-visual {display:flex;align-items:center;width:76px;height:50px;}
+        .truck-visual .pro-icon {width:72px;height:48px;display:block;}
+        .pro-icon {width:32px;height:32px;display:block;flex:0 0 auto;}
+        .equipment-row {display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px;margin:9px 0 5px;color:#071b35;}
+        .equipment-row strong {font-size:.98rem;}
+        .equipment-row span {font-size:.88rem;color:#52657b;font-weight:750;}
         .ransa-tag {background:#007953;color:#fff;font-weight:900;font-size:.7rem;letter-spacing:.09em;padding:5px 8px;border-radius:6px;}
         .truck-plate {font-size:1.35rem;font-weight:900;color:#071b35;letter-spacing:.06em;margin:5px 0;}
         .truck-meta {display:flex;justify-content:space-between;color:#607286;font-size:.82rem;border-bottom:1px solid #edf2f0;padding-bottom:10px;}
