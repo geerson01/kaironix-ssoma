@@ -15,15 +15,27 @@ def _secret(name: str) -> str:
 
 
 def _headers(admin: bool = False, prefer: str | None = None) -> dict:
-    key = _secret("SUPABASE_SERVICE_ROLE_KEY") if admin else _secret("SUPABASE_ANON_KEY")
-    token = key if admin else st.session_state.get("auth", {}).get("access_token", key)
+    key = (
+        _secret("SUPABASE_SERVICE_ROLE_KEY")
+        if admin
+        else _secret("SUPABASE_ANON_KEY")
+    )
+
     headers = {
         "apikey": key,
-        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
+
+    # La clave sb_secret se envía solamente como apikey.
+    # El usuario conectado utiliza su token para aplicar los permisos RLS.
+    if not admin:
+        token = st.session_state.get("auth", {}).get("access_token")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
     if prefer:
         headers["Prefer"] = prefer
+
     return headers
 
 
