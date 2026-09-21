@@ -18,6 +18,24 @@ def apply_styles() -> None:
         .brand span {color:#28e0a0;}
         .login-symbol {display:flex;justify-content:center;margin-bottom:10px;}
         .login-symbol .kaironix-symbol {width:72px;height:72px;filter:drop-shadow(0 8px 14px rgba(0,80,60,.16));}
+        [data-testid="stAppViewContainer"]:has(.login-marker) .block-container {max-width:1420px;padding-top:1.2rem;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) [data-testid="stHeader"] {background:transparent;}
+        .login-hero {min-height:690px;border-radius:26px;background-size:cover;background-position:center;position:relative;overflow:hidden;box-shadow:0 20px 48px rgba(3,35,38,.18);}
+        .login-hero-copy {position:absolute;left:42px;top:42px;max-width:470px;color:#fff;}
+        .login-hero-copy>span {font-size:.72rem;letter-spacing:.2em;font-weight:850;color:#6ce9ba;}
+        .login-hero-copy h2 {font-size:2.65rem;line-height:1.08;color:#fff;margin:18px 0 16px;letter-spacing:-.035em;}
+        .login-hero-copy h2 em {font-style:normal;color:#45dda5;}
+        .login-hero-copy p {font-size:1rem;line-height:1.55;color:#deeee9;max-width:410px;}
+        .login-hero-footer {position:absolute;left:42px;bottom:35px;display:flex;flex-direction:column;color:#fff;letter-spacing:.08em;}
+        .login-hero-footer small {color:#a9c9c0;margin-top:4px;}
+        .login-brand {text-align:center;margin:60px 0 22px;}
+        .login-brand .login-symbol {margin-bottom:4px}.login-brand .kaironix-symbol {width:78px;height:78px;}
+        .login-brand h1 {font-size:2.55rem;margin:0;color:#071b35;line-height:1;}
+        .login-product {font-size:1.55rem;font-weight:900;color:#071b35;margin-top:7px;letter-spacing:.02em}.login-product b {color:#00a86b;}
+        .login-brand p {color:#607286;margin:10px 0 0;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {max-width:480px;margin:0 auto;padding:24px;border-radius:20px;box-shadow:0 12px 30px rgba(7,27,53,.08);}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] button {background:linear-gradient(90deg,#008f68,#00b577);border:0;color:#fff;}
+        .login-secure {text-align:center;color:#607286;font-size:.8rem;margin:18px 0 14px;}.login-pilot {text-align:center;color:#008f68;font-size:.8rem;font-weight:850;}
         .eyebrow {font-size:.78rem;font-weight:800;letter-spacing:.16em;color:#008f5a;text-transform:uppercase;}
         .page-title {font-size:2.2rem;font-weight:850;color:#071b35;margin:.15rem 0 .1rem;}
         .page-subtitle {color:#52657b;margin-bottom:1rem;}
@@ -77,6 +95,10 @@ def apply_styles() -> None:
           .metric-card {min-height:132px;padding:15px;}
           .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
           .metric-icon {width:48px;height:48px;}
+          .login-hero {min-height:260px;border-radius:18px;}
+          .login-hero-copy {left:22px;top:24px;max-width:300px}.login-hero-copy>span {font-size:.6rem}.login-hero-copy h2 {font-size:1.7rem;margin:10px 0}.login-hero-copy p {display:none;}
+          .login-hero-footer {left:22px;bottom:20px;font-size:.75rem;}
+          .login-brand {margin:26px 0 16px}.login-brand h1 {font-size:2rem}.login-brand .kaironix-symbol {width:62px;height:62px;}
         }
         @media (min-width: 701px) and (max-width: 1200px) {
           .metric-card {padding:14px;min-height:140px;}
