@@ -96,6 +96,9 @@ def apply_styles() -> None:
         .equipment-row {display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px;margin:9px 0 5px;color:#071b35;}
         .equipment-row strong {font-size:.98rem;}
         .equipment-row span {font-size:.88rem;color:#52657b;font-weight:750;}
+        .inventory-card {background:linear-gradient(145deg,#ffffff 0%,#f4faf7 100%);border:1px solid #d8e7e1;border-radius:18px;padding:17px;min-height:138px;display:grid;grid-template-columns:62px minmax(0,1fr);align-items:center;gap:14px;margin:7px 0;box-shadow:0 8px 22px rgba(8,72,54,.06);}
+        .inventory-icon {width:60px;height:60px;border-radius:16px;background:#e8f6f0;display:flex;align-items:center;justify-content:center;}
+        .inventory-icon .pro-icon {width:42px;height:42px}.inventory-copy span {display:block;color:#486176;font-size:.86rem;font-weight:850}.inventory-copy b {display:block;color:#071b35;font-size:2.15rem;line-height:1;margin:7px 0 5px}.inventory-copy small {display:block;color:#718294;font-size:.72rem;line-height:1.2}.inventory-note {background:#e9f4ff;border:1px solid #d1e5f6;border-radius:12px;padding:10px 13px;color:#31516a;font-size:.78rem;margin-top:8px;}
         .equipment-card {background:#fff;border:1px solid #dce8e3;border-radius:15px;padding:12px 14px;margin:8px 0;box-shadow:0 5px 15px rgba(12,55,43,.035);}
         .equipment-card-head {display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:11px;}
         .equipment-card-icon {width:42px;height:42px;border-radius:11px;background:#f1f7f4;display:flex;align-items:center;justify-content:center;}
@@ -149,6 +152,7 @@ def apply_styles() -> None:
           .metric-card {min-height:132px;padding:15px;}
           .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
           .metric-icon {width:48px;height:48px;}
+          .inventory-card {grid-template-columns:48px minmax(0,1fr);padding:13px;min-height:112px;gap:10px}.inventory-icon {width:48px;height:48px}.inventory-icon .pro-icon {width:34px;height:34px}.inventory-copy b {font-size:1.7rem;}
           .equipment-card-head {grid-template-columns:38px minmax(0,1fr) auto;gap:8px}.equipment-card-icon {width:38px;height:38px}.equipment-numbers span {font-size:.65rem;}
           .dashboard-alert {grid-template-columns:1fr;gap:10px}.dashboard-alert-main {grid-template-columns:76px minmax(0,1fr)}.dashboard-alert-meta {justify-content:flex-start;border-top:1px solid #edf2ef;padding-top:9px;}
           .login-hero {min-height:260px;border-radius:18px;}
