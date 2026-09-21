@@ -349,47 +349,56 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
 
     with c2:
-        st.subheader("Estado de implementos")
-        st.caption(f"Resultado de la última inspección de {inspected} unidades. Los hallazgos abiertos también descuentan cumplimiento.")
-        items = [
-            ("cone", "Conos", "conos", r"cono"),
-            ("chock", "Tacos", "tacos", r"taco"),
-            ("firstaid", "Botiquín", "botiquin", r"botiqu"),
-            ("extinguisher", "Extintor", "extintor", r"extintor"),
-        ]
-        finding_text = pd.Series(dtype=str)
-        if not open_h.empty:
-            finding_text = (
-                open_h.get("categoria", pd.Series("", index=open_h.index)).fillna("").astype(str)
-                + " "
-                + open_h.get("descripcion", pd.Series("", index=open_h.index)).fillna("").astype(str)
-            ).str.lower()
-
-        for icon_name, label, field, keyword in items:
-            compliant = pd.Series(False, index=latest.index, dtype=bool)
-            if not latest.empty and field in latest:
-                compliant = latest[field].fillna(False).astype(bool)
-            if not open_h.empty and not latest.empty:
-                risk_plates = set(
-                    open_h.loc[finding_text.str.contains(keyword, regex=True, na=False), "placa"]
-                    .fillna("").astype(str).str.upper()
-                )
-                compliant = compliant & ~latest["placa"].fillna("").astype(str).str.upper().isin(risk_plates)
-            ok_count = int(compliant.sum())
-            observed_count = max(inspected - ok_count, 0)
-            equipment_pct = round(ok_count / inspected * 100) if inspected else 0
-            tone = "good" if equipment_pct >= 80 else "warning" if equipment_pct >= 50 else "danger"
-            st.markdown(
-                f"""<div class="equipment-card">
-                  <div class="equipment-card-head">
-                    <span class="equipment-card-icon">{professional_icon(icon_name)}</span>
-                    <div><strong>{label}</strong><small>Mínimo operativo conforme</small></div>
-                    <div class="equipment-numbers"><b>{ok_count}/{inspected}</b><span>{observed_count} observados</span></div>
-                  </div>
-                  <div class="equipment-track"><span class="{tone}" style="width:{equipment_pct}%"></span></div>
-                </div>""",
-                unsafe_allow_html=True,
+        st.subheader("Inventario de implementos registrado")
+        st.caption(
+            f"Cantidad física declarada en la última inspección de {inspected} unidades."
+        )
+        total_conos = (
+            int(pd.to_numeric(latest.get("conos_cantidad"), errors="coerce").fillna(0).sum())
+            if not latest.empty and "conos_cantidad" in latest else 0
+        )
+        total_tacos = (
+            int(pd.to_numeric(latest.get("tacos_cantidad"), errors="coerce").fillna(0).sum())
+            if not latest.empty and "tacos_cantidad" in latest else 0
+        )
+        total_botiquines = (
+            int(
+                latest["botiquin_estado"].fillna("").astype(str)
+                .str.strip().str.lower().ne("no tiene").sum()
             )
+            if not latest.empty and "botiquin_estado" in latest else 0
+        )
+        total_extintores = (
+            int(latest["extintor_tiene"].fillna(False).astype(bool).sum())
+            if not latest.empty and "extintor_tiene" in latest else 0
+        )
+        inventory = [
+            ("cone", total_conos, "Conos", "unidades físicas"),
+            ("chock", total_tacos, "Tacos", "unidades físicas"),
+            ("firstaid", total_botiquines, "Botiquines", "camiones equipados"),
+            ("extinguisher", total_extintores, "Extintores", "camiones equipados"),
+        ]
+        for row_start in range(0, len(inventory), 2):
+            inv_cols = st.columns(2)
+            for inv_col, (icon_name, quantity, label, unit_label) in zip(
+                inv_cols, inventory[row_start:row_start + 2]
+            ):
+                with inv_col:
+                    st.markdown(
+                        f"""<div class="inventory-card">
+                          <div class="inventory-icon">{professional_icon(icon_name)}</div>
+                          <div class="inventory-copy">
+                            <span>{label}</span>
+                            <b>{quantity}</b>
+                            <small>{unit_label} registradas</small>
+                          </div>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+        st.markdown(
+            f'<div class="inventory-note">Base del conteo: última inspección de <b>{inspected}</b> unidades, sin duplicar placas.</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<div class="alerts-section-title"><div><span>CENTRO PREVENTIVO</span><h3>Alertas y acciones prioritarias</h3></div></div>', unsafe_allow_html=True)
     if open_h.empty:
