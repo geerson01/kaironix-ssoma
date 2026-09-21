@@ -66,25 +66,43 @@ def login_background_data() -> str:
 def professional_icon(name: str) -> str:
     icons = {
         "truck": ransa_truck_image(),
-        "cone": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Conos">
-          <path d="M18 5h12l7 31H11z" fill="#ff7a00"/><path d="M15 19h18l2 8H13z" fill="#fff"/>
-          <rect x="6" y="36" width="36" height="7" rx="3" fill="#e35300"/>
+        "cone": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Conos">
+          <defs><linearGradient id="coneBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffad22"/><stop offset=".48" stop-color="#ff6b00"/><stop offset="1" stop-color="#d94700"/></linearGradient><linearGradient id="coneBase" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#ff7b00"/><stop offset="1" stop-color="#b93600"/></linearGradient></defs>
+          <ellipse cx="32" cy="57" rx="25" ry="4" fill="#0a1d2d" opacity=".18"/>
+          <path d="M27 7h10l12 43H15z" fill="url(#coneBody)" stroke="#c64200" stroke-width="1.4"/>
+          <path d="M20 29h24l3 10H17z" fill="#fff" stroke="#e9eef1" stroke-width="1"/>
+          <path d="M26 10h4L20 48h-3z" fill="#ffd27a" opacity=".55"/>
+          <rect x="7" y="48" width="50" height="9" rx="3.5" fill="url(#coneBase)" stroke="#a92e00" stroke-width="1.4"/>
+          <path d="M13 51h38" stroke="#ffb04b" stroke-width="2" opacity=".65"/>
         </svg>''',
-        "chock": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Tacos de rueda">
-          <path d="M7 37V25c12 0 19-7 24-17l10 29z" fill="#182235"/>
-          <path d="M11 30l5-2 3 9h-6zm10-6 5-4 6 17h-7z" fill="#f5b400"/>
-          <rect x="5" y="37" width="38" height="5" rx="2" fill="#0a1322"/>
+        "chock": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Tacos de rueda">
+          <defs><linearGradient id="chockBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#33465e"/><stop offset=".55" stop-color="#111d2c"/><stop offset="1" stop-color="#050b12"/></linearGradient></defs>
+          <ellipse cx="33" cy="55" rx="25" ry="4" fill="#071b35" opacity=".2"/>
+          <path d="M8 51V35c15 0 25-10 32-27l16 43z" fill="url(#chockBody)" stroke="#02070d" stroke-width="2"/>
+          <path d="M14 40l8-3 5 14H17zm15-10 8-8 11 29H36z" fill="#ffc21c" stroke="#d08a00" stroke-width="1"/>
+          <path d="M11 47h41" stroke="#667b91" stroke-width="2" opacity=".7"/>
+          <rect x="6" y="51" width="52" height="6" rx="2" fill="#070d15"/>
         </svg>''',
-        "firstaid": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Botiquín">
-          <rect x="5" y="13" width="38" height="29" rx="6" fill="#e43d45"/>
-          <path d="M17 13V9c0-2 2-4 4-4h6c2 0 4 2 4 4v4" fill="none" stroke="#a91f2a" stroke-width="4"/>
-          <rect x="20" y="20" width="8" height="16" rx="1" fill="#fff"/><rect x="16" y="24" width="16" height="8" rx="1" fill="#fff"/>
+        "firstaid": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Botiquín">
+          <defs><linearGradient id="kitBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff6670"/><stop offset=".5" stop-color="#e33442"/><stop offset="1" stop-color="#a91323"/></linearGradient></defs>
+          <ellipse cx="32" cy="57" rx="24" ry="4" fill="#071b35" opacity=".16"/>
+          <path d="M23 17v-5c0-4 3-7 7-7h5c4 0 7 3 7 7v5" fill="none" stroke="#921020" stroke-width="5"/>
+          <rect x="6" y="16" width="52" height="40" rx="8" fill="url(#kitBody)" stroke="#9f1422" stroke-width="1.6"/>
+          <path d="M10 22c10-4 34-4 44 0" fill="none" stroke="#ff9299" stroke-width="2" opacity=".55"/>
+          <rect x="27" y="25" width="11" height="23" rx="2" fill="#fff"/>
+          <rect x="21" y="31" width="23" height="11" rx="2" fill="#fff"/>
+          <path d="M11 51h42" stroke="#8e1020" stroke-width="2" opacity=".45"/>
         </svg>''',
-        "extinguisher": '''<svg class="pro-icon" viewBox="0 0 48 48" aria-label="Extintor">
-          <path d="M20 8h12l4 7v25c0 3-2 5-5 5H17c-3 0-5-2-5-5V20c0-6 3-10 8-12z" fill="#e33b32"/>
-          <rect x="18" y="4" width="14" height="6" rx="2" fill="#26354a"/><path d="M31 7h9v5h-5" fill="none" stroke="#26354a" stroke-width="3"/>
-          <path d="M36 11c7 4 5 13 3 18" fill="none" stroke="#26354a" stroke-width="3" stroke-linecap="round"/>
-          <rect x="17" y="22" width="14" height="9" rx="2" fill="#fff"/><path d="M20 26h8" stroke="#e33b32" stroke-width="2"/>
+        "extinguisher": '''<svg class="pro-icon realistic-icon" viewBox="0 0 64 64" aria-label="Extintor">
+          <defs><linearGradient id="extBody" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff665d"/><stop offset=".5" stop-color="#e72d25"/><stop offset="1" stop-color="#a91412"/></linearGradient></defs>
+          <ellipse cx="30" cy="59" rx="20" ry="3.5" fill="#071b35" opacity=".18"/>
+          <rect x="23" y="5" width="19" height="7" rx="2" fill="#26384a"/>
+          <path d="M39 8h12v7h-7" fill="none" stroke="#172536" stroke-width="4" stroke-linejoin="round"/>
+          <path d="M49 14c9 7 5 21 2 29" fill="none" stroke="#172536" stroke-width="4" stroke-linecap="round"/>
+          <path d="M18 13h23c5 5 7 11 7 18v21c0 5-4 8-8 8H18c-5 0-8-3-8-8V28c0-7 3-12 8-15z" fill="url(#extBody)" stroke="#9f1713" stroke-width="1.6"/>
+          <path d="M17 17c-4 10-4 27-1 37" fill="none" stroke="#ff9791" stroke-width="3" opacity=".55"/>
+          <rect x="17" y="30" width="24" height="16" rx="3" fill="#fff" stroke="#d9e1e5"/>
+          <path d="M22 35h14M22 39h10" stroke="#e42f28" stroke-width="2"/>
         </svg>''',
     }
     return icons[name]
@@ -332,7 +350,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             values=values if sum(values) else [1],
             labels=["Conformes", "Observadas", "Pendientes"],
             hole=.72,
-            marker_colors=["#00a86b", "#f59e0b", "#d7e1de"],
+            marker_colors=["#00c878", "#ff9d00", "#cbd9d5"],
             textinfo="none",
         ))
         pct = round((conformes / total * 100), 1) if total else 0
@@ -385,7 +403,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             ):
                 with inv_col:
                     st.markdown(
-                        f"""<div class="inventory-card">
+                        f"""<div class="inventory-card {icon_name}">
                           <div class="inventory-icon">{professional_icon(icon_name)}</div>
                           <div class="inventory-copy">
                             <span>{label}</span>
