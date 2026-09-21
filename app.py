@@ -163,9 +163,7 @@ def sidebar(profile: dict) -> str:
         label_visibility="collapsed",
         key="main_navigation",
     )
-    previous_page = st.session_state.get("_previous_navigation")
-    if previous_page is not None and selected != previous_page:
-        components.html(
+    components.html(
             """
             <script>
             (() => {
@@ -193,10 +191,9 @@ def sidebar(profile: dict) -> str:
             })();
             </script>
             """,
-            height=0,
-            width=0,
-        )
-    st.session_state["_previous_navigation"] = selected
+        height=0,
+        width=0,
+    )
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**{profile.get('nombre','Usuario')}**")
     st.sidebar.markdown(f'<span class="role-pill">{role}</span>', unsafe_allow_html=True)
