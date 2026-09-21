@@ -127,6 +127,21 @@ def normalize_dates(frame: pd.DataFrame, column: str = "fecha") -> pd.DataFrame:
     return frame
 
 
+def deduplicate_findings(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return frame.copy()
+    clean = frame.copy()
+    plate = clean.get("placa", pd.Series("", index=clean.index)).fillna("").astype(str).str.upper().str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+    finding_date = clean.get("fecha", pd.Series("", index=clean.index)).fillna("").astype(str).str[:10]
+    category = clean.get("categoria", pd.Series("", index=clean.index)).fillna("").astype(str).str.lower().str.strip()
+    description = clean.get("descripcion", pd.Series("", index=clean.index)).fillna("").astype(str).str.lower().str.replace(r"\s+", " ", regex=True).str.strip()
+    clean["_duplicate_key"] = plate + "|" + finding_date + "|" + category + "|" + description
+    sort_columns = [c for c in ["created_at", "id"] if c in clean.columns]
+    if sort_columns:
+        clean = clean.sort_values(sort_columns, ascending=False)
+    return clean.drop_duplicates("_duplicate_key", keep="first").drop(columns="_duplicate_key")
+
+
 def login_screen() -> None:
     st.markdown('<span class="login-marker"></span>', unsafe_allow_html=True)
     left, access, right = st.columns([1, 1.05, 1])
@@ -318,9 +333,10 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     if not ins.empty:
         latest = ins.sort_values(["fecha", "created_at"], ascending=False).drop_duplicates("placa")
 
+    dashboard_findings = deduplicate_findings(hallazgos)
     open_h = (
-        hallazgos[hallazgos["estado"] != "Subsanado"].copy()
-        if not hallazgos.empty and "estado" in hallazgos
+        dashboard_findings[dashboard_findings["estado"] != "Subsanado"].copy()
+        if not dashboard_findings.empty and "estado" in dashboard_findings
         else pd.DataFrame()
     )
     total = len(unidades)
@@ -946,7 +962,7 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
 def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool) -> None:
     page_header("CENTRO DE CONTROL PREVENTIVO", "Hallazgos", "Prioriza riesgos, asigna responsables y controla cada acción hasta su cierre.")
 
-    findings = hallazgos.copy()
+    findings = deduplicate_findings(hallazgos)
     if not findings.empty:
         findings["fecha_compromiso_dt"] = pd.to_datetime(findings.get("fecha_compromiso"), errors="coerce")
     abiertos = findings[findings.get("estado", pd.Series(dtype=str)) != "Subsanado"] if not findings.empty else pd.DataFrame()
@@ -985,9 +1001,41 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
                     if not placa or not descripcion or not responsable:
                         st.error("Completa placa, descripción y responsable.")
                     else:
-                        ok, msg = db.insert("hallazgos", {"inspeccion_id": inspection_id, "placa": placa, "fecha": date.today().isoformat(), "categoria": categoria, "descripcion": descripcion, "criticidad": criticidad, "responsable": responsable, "fecha_compromiso": compromiso.isoformat(), "estado": "Abierto", "created_by": auth.current_auth().get("user_id")})
-                        (st.success if ok else st.error)(msg)
-                        if ok: load_all.clear(); st.rerun()
+                        existing = hallazgos.copy()
+                        duplicate = pd.DataFrame()
+                        if not existing.empty:
+                            same_plate = (
+                                existing["placa"].fillna("").astype(str).str.upper()
+                                .str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+                                == placa.replace("-", "").replace(" ", "").upper()
+                            )
+                            same_category = (
+                                existing["categoria"].fillna("").astype(str).str.lower().str.strip()
+                                == categoria.lower().strip()
+                            )
+                            if inspection_id is not None and "inspeccion_id" in existing:
+                                same_reference = pd.to_numeric(
+                                    existing["inspeccion_id"], errors="coerce"
+                                ) == inspection_id
+                            else:
+                                same_reference = (
+                                    existing["fecha"].fillna("").astype(str).str[:10]
+                                    == date.today().isoformat()
+                                )
+                            duplicate = existing[same_plate & same_category & same_reference]
+                        if not duplicate.empty:
+                            duplicate_id = int(duplicate.iloc[0].get("id", 0))
+                            st.error(
+                                f"La placa {placa} ya tiene un hallazgo de categoría "
+                                f"{categoria} registrado (#{duplicate_id}). "
+                                "Actualiza el registro existente; no se creó un duplicado."
+                            )
+                        else:
+                            ok, msg = db.insert("hallazgos", {"inspeccion_id": inspection_id, "placa": placa, "fecha": date.today().isoformat(), "categoria": categoria, "descripcion": descripcion, "criticidad": criticidad, "responsable": responsable, "fecha_compromiso": compromiso.isoformat(), "estado": "Abierto", "created_by": auth.current_auth().get("user_id")})
+                            (st.success if ok else st.error)(msg)
+                            if ok:
+                                load_all.clear()
+                                st.rerun()
     if hallazgos.empty:
         st.markdown('''<div class="findings-empty"><div class="findings-empty-icon">✓</div>
         <h3>Flota sin hallazgos registrados</h3><p>Cuando una inspección resulte observada, registra aquí el riesgo, responsable y fecha compromiso.</p>
