@@ -747,14 +747,79 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
               <span class="state-pill">{escape(str(row.get("estado", "Abierto")))}</span></div>
             </div>''', unsafe_allow_html=True)
     if can_edit and not view.empty:
-        st.markdown("#### Actualizar seguimiento")
-        c1, c2, c3 = st.columns([1, 1, 1])
-        record_id = c1.selectbox("Hallazgo", view["id"].tolist(), format_func=lambda x: f"#{x}")
-        new_status = c2.selectbox("Nuevo estado", ["Abierto", "En proceso", "Subsanado"])
-        if c3.button("Actualizar", use_container_width=True):
-            ok, msg = db.update("hallazgos", record_id, {"estado": new_status})
-            (st.success if ok else st.error)(msg)
-            if ok: load_all.clear(); st.rerun()
+        st.markdown("#### Corregir o actualizar un hallazgo")
+        edit_ids = view["id"].tolist()
+        record_id = st.selectbox(
+            "Hallazgo a modificar",
+            edit_ids,
+            format_func=lambda x: f"#{x} · {view.loc[view['id'] == x, 'placa'].iloc[0]}",
+        )
+        selected_finding = view[view["id"] == record_id].iloc[0]
+        with st.form("edit_finding_form"):
+            h1, h2, h3 = st.columns(3)
+            edit_placa = h1.text_input("Placa", value=str(selected_finding.get("placa") or "")).upper().strip()
+            category_options = ["Implementos", "Extintor vencido", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"]
+            old_category = str(selected_finding.get("categoria") or "Otro")
+            edit_category = h2.selectbox(
+                "Categoría",
+                category_options,
+                index=category_options.index(old_category) if old_category in category_options else len(category_options) - 1,
+            )
+            criticality_options = ["Baja", "Media", "Alta", "Crítica"]
+            old_criticality = str(selected_finding.get("criticidad") or "Baja")
+            edit_criticality = h3.selectbox(
+                "Criticidad",
+                criticality_options,
+                index=criticality_options.index(old_criticality) if old_criticality in criticality_options else 0,
+            )
+            edit_description = st.text_area(
+                "Descripción del hallazgo",
+                value=str(selected_finding.get("descripcion") or ""),
+                height=100,
+            )
+            j1, j2, j3 = st.columns(3)
+            edit_responsible = j1.text_input(
+                "Responsable",
+                value=str(selected_finding.get("responsable") or ""),
+            )
+            old_commitment = pd.to_datetime(selected_finding.get("fecha_compromiso"), errors="coerce")
+            edit_commitment = j2.date_input(
+                "Fecha compromiso",
+                value=old_commitment.date() if pd.notna(old_commitment) else date.today(),
+            )
+            status_options = ["Abierto", "En proceso", "Subsanado"]
+            old_status = str(selected_finding.get("estado") or "Abierto")
+            edit_status = j3.selectbox(
+                "Estado",
+                status_options,
+                index=status_options.index(old_status) if old_status in status_options else 0,
+            )
+            update_finding = st.form_submit_button(
+                "Guardar cambios del hallazgo",
+                type="primary",
+                use_container_width=True,
+            )
+        if update_finding:
+            if not edit_placa or not edit_description or not edit_responsible:
+                st.error("Completa placa, descripción y responsable.")
+            else:
+                ok, msg = db.update(
+                    "hallazgos",
+                    record_id,
+                    {
+                        "placa": edit_placa,
+                        "categoria": edit_category,
+                        "descripcion": edit_description,
+                        "criticidad": edit_criticality,
+                        "responsable": edit_responsible,
+                        "fecha_compromiso": edit_commitment.isoformat(),
+                        "estado": edit_status,
+                    },
+                )
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    load_all.clear()
+                    st.rerun()
 
 
 def evidence_page(inspecciones: pd.DataFrame, hallazgos: pd.DataFrame) -> None:
