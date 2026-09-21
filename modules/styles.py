@@ -87,7 +87,12 @@ def apply_styles() -> None:
         .status-ok {color:#008f5a;font-weight:800;}
         .status-warn {color:#d98200;font-weight:800;}
         .status-bad {color:#d92d20;font-weight:800;}
-        .truck-card {background:#fff;border:1px solid #d9e6e1;border-radius:18px;padding:16px;margin:5px 0 14px;box-shadow:0 8px 24px rgba(0,74,57,.07);min-height:178px;}
+        .unit-profile-head {background:linear-gradient(135deg,#ffffff,#eaf8f2);border:1px solid #d3e7de;border-radius:22px;padding:20px;display:grid;grid-template-columns:110px minmax(0,1fr) auto;align-items:center;gap:20px;box-shadow:0 10px 28px rgba(0,72,53,.08);margin:12px 0 18px;}
+        .unit-profile-truck {width:105px;height:74px;display:flex;align-items:center}.unit-profile-truck .truck-photo {width:105px;height:70px;object-fit:contain;mix-blend-mode:multiply}.unit-profile-head>div:nth-child(2)>span {font-size:.7rem;color:#008f68;font-weight:900;letter-spacing:.13em}.unit-profile-head h2 {font-size:2rem;margin:3px 0;color:#071b35}.unit-profile-head p {margin:0;color:#607286}
+        .profile-mini-card {background:#fff;border:1px solid #dce8e3;border-radius:15px;padding:15px;min-height:105px;display:grid;grid-template-columns:38px 1fr;grid-template-rows:auto auto;align-items:center;box-shadow:0 6px 18px rgba(8,72,54,.05)}.profile-mini-card>span {grid-row:1/3;font-size:1.35rem}.profile-mini-card>b {font-size:1.35rem;color:#071b35}.profile-mini-card>small {color:#6d8091;font-size:.72rem;font-weight:750}
+        .profile-item {background:#fff;border:1px solid #dce8e3;border-radius:16px;padding:15px;text-align:center;min-height:145px;box-shadow:0 7px 18px rgba(8,72,54,.05)}.profile-item>div {width:52px;height:52px;border-radius:14px;background:#e9f6f0;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}.profile-item .pro-icon {width:42px;height:42px}.profile-item>span {display:block;color:#607286;font-size:.78rem;font-weight:800}.profile-item>b {display:block;color:#071b35;font-size:1.05rem;margin-top:5px}
+        .unit-finding {background:#fff;border:1px solid #dce7e2;border-left:5px solid #f5a623;border-radius:14px;padding:14px 16px;margin:9px 0;box-shadow:0 5px 14px rgba(8,72,54,.04)}.unit-finding>div {display:flex;justify-content:space-between;gap:12px}.unit-finding>div b {color:#071b35}.unit-finding>div span {background:#fff3d8;color:#8a5b00;border-radius:999px;padding:4px 9px;font-size:.7rem;font-weight:850}.unit-finding p {color:#40576c;margin:8px 0}.unit-finding small {color:#718294}
+        .truck-card {background:#fff;border:1px solid #d9e6e1;border-radius:18px;padding:16px;margin:5px 0 8px;box-shadow:0 8px 24px rgba(0,74,57,.07);min-height:178px;}
         .truck-top {display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
         .truck-visual {display:flex;align-items:center;width:76px;height:50px;}
         .truck-visual .pro-icon {width:72px;height:48px;display:block;}
@@ -155,6 +160,7 @@ def apply_styles() -> None:
           .metric-card {min-height:132px;padding:15px;}
           .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
           .metric-icon {width:48px;height:48px;}
+          .unit-profile-head {grid-template-columns:72px minmax(0,1fr);gap:12px;padding:15px}.unit-profile-truck {width:70px;height:55px}.unit-profile-truck .truck-photo {width:70px;height:52px}.unit-profile-head>.fleet-status {grid-column:1/3;margin-top:0}.unit-profile-head h2 {font-size:1.55rem}.profile-mini-card {min-height:92px;padding:12px}.profile-item {min-height:125px;padding:12px}
           .inventory-card {grid-template-columns:48px minmax(0,1fr);padding:13px;min-height:112px;gap:10px}.inventory-icon {width:48px;height:48px}.inventory-icon .pro-icon {width:34px;height:34px}.inventory-copy b {font-size:1.7rem;}
           .equipment-card-head {grid-template-columns:38px minmax(0,1fr) auto;gap:8px}.equipment-card-icon {width:38px;height:38px}.equipment-numbers span {font-size:.65rem;}
           .dashboard-alert {grid-template-columns:1fr;gap:10px}.dashboard-alert-main {grid-template-columns:76px minmax(0,1fr)}.dashboard-alert-meta {justify-content:flex-start;border-top:1px solid #edf2ef;padding-top:9px;}
