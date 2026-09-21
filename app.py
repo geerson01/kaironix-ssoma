@@ -235,7 +235,7 @@ def sidebar(profile: dict) -> str:
 
           const requestClose = () => {
             storage.setItem('kx-sidebar-close-after-nav', '1');
-            hideSidebar();
+            setTimeout(hideSidebar, 320);
           };
 
           const bindNavigation = () => {
@@ -243,8 +243,7 @@ def sidebar(profile: dict) -> str:
             controls.forEach((control) => {
               if (control.dataset.kxBound === '1') return;
               control.dataset.kxBound = '1';
-              control.addEventListener('pointerdown', requestClose, true);
-              control.addEventListener('click', requestClose, true);
+              control.addEventListener('click', requestClose, false);
             });
             return controls.length > 0;
           };
