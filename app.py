@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from modules import auth, database as db
 from modules.styles import apply_styles, metric_card, page_header
@@ -156,7 +157,31 @@ def sidebar(profile: dict) -> str:
     pages = ["Inicio", "Unidades", "Nueva inspección", "Hallazgos", "Evidencias", "Reportes"]
     if role == "Administrador":
         pages.append("Usuarios")
-    selected = st.sidebar.radio("Navegación", pages, label_visibility="collapsed")
+    selected = st.sidebar.radio(
+        "Navegación",
+        pages,
+        label_visibility="collapsed",
+        key="main_navigation",
+    )
+    previous_page = st.session_state.get("_previous_navigation")
+    if previous_page is not None and selected != previous_page:
+        components.html(
+            """
+            <script>
+            setTimeout(() => {
+              const doc = window.parent.document;
+              const target = doc.querySelector(
+                '[data-testid="stSidebarCollapseButton"] button, '
+                + '[data-testid="stSidebarCollapseButton"]'
+              );
+              if (target) target.click();
+            }, 120);
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
+    st.session_state["_previous_navigation"] = selected
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**{profile.get('nombre','Usuario')}**")
     st.sidebar.markdown(f'<span class="role-pill">{role}</span>', unsafe_allow_html=True)
