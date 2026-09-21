@@ -631,58 +631,69 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                     st.image(evidence_url, caption=f"Evidencia · {selected_plate}", width=520)
                 else:
                     st.info("Sin evidencia fotográfica en esta inspección.")
-                    if is_admin:
-                        confirm_delete = st.checkbox(
-                            f"Confirmo eliminar la inspección #{inspection_id}",
-                            key=f"confirm_delete_inspection_{inspection_id}",
-                            help="La placa permanecerá en la flota. Se eliminarán la inspección y sus hallazgos vinculados.",
+
+                if is_admin:
+                    if evidence_url:
+                        st.warning(
+                            "Esta inspección contiene una evidencia. Elimínala únicamente "
+                            "si confirmaste que es un registro duplicado o incorrecto."
                         )
-                        if st.button(
-                            "🗑 Eliminar inspección sin evidencia",
-                            key=f"delete_inspection_{inspection_id}",
-                            disabled=not confirm_delete,
-                            use_container_width=True,
-                        ):
-                            linked_findings = (
-                                hallazgos[
-                                    pd.to_numeric(
-                                        hallazgos.get("inspeccion_id", pd.Series(dtype=float)),
-                                        errors="coerce",
-                                    ).eq(inspection_id)
-                                ]
-                                if not hallazgos.empty and "inspeccion_id" in hallazgos
-                                else pd.DataFrame()
+                    confirm_delete = st.checkbox(
+                        f"Confirmo eliminar la inspección #{inspection_id}",
+                        key=f"confirm_delete_inspection_{inspection_id}",
+                        help="La placa permanecerá en la flota. Se eliminarán la inspección y sus hallazgos vinculados.",
+                    )
+                    delete_label = (
+                        "🗑 Eliminar inspección duplicada"
+                        if evidence_url
+                        else "🗑 Eliminar inspección sin evidencia"
+                    )
+                    if st.button(
+                        delete_label,
+                        key=f"delete_inspection_{inspection_id}",
+                        disabled=not confirm_delete,
+                        use_container_width=True,
+                    ):
+                        linked_findings = (
+                            hallazgos[
+                                pd.to_numeric(
+                                    hallazgos.get("inspeccion_id", pd.Series(dtype=float)),
+                                    errors="coerce",
+                                ).eq(inspection_id)
+                            ]
+                            if not hallazgos.empty and "inspeccion_id" in hallazgos
+                            else pd.DataFrame()
+                        )
+                        delete_errors = []
+                        for _, linked_finding in linked_findings.iterrows():
+                            finding_ok, finding_msg = db.delete(
+                                "hallazgos",
+                                int(linked_finding["id"]),
+                                admin=True,
                             )
-                            delete_errors = []
-                            for _, linked_finding in linked_findings.iterrows():
-                                finding_ok, finding_msg = db.delete(
-                                    "hallazgos",
-                                    int(linked_finding["id"]),
-                                    admin=True,
+                            if not finding_ok:
+                                delete_errors.append(finding_msg)
+                        if delete_errors:
+                            st.error(
+                                "No se pudo eliminar la inspección porque algunos "
+                                "hallazgos vinculados no pudieron borrarse: "
+                                + " | ".join(delete_errors[:2])
+                            )
+                        else:
+                            delete_ok, delete_msg = db.delete(
+                                "inspecciones",
+                                inspection_id,
+                                admin=True,
+                            )
+                            if delete_ok:
+                                load_all.clear()
+                                st.success(
+                                    f"Inspección #{inspection_id} eliminada. "
+                                    "La placa permanece registrada."
                                 )
-                                if not finding_ok:
-                                    delete_errors.append(finding_msg)
-                            if delete_errors:
-                                st.error(
-                                    "No se pudo eliminar la inspección porque algunos "
-                                    "hallazgos vinculados no pudieron borrarse: "
-                                    + " | ".join(delete_errors[:2])
-                                )
+                                st.rerun()
                             else:
-                                delete_ok, delete_msg = db.delete(
-                                    "inspecciones",
-                                    inspection_id,
-                                    admin=True,
-                                )
-                                if delete_ok:
-                                    load_all.clear()
-                                    st.success(
-                                        f"Inspección #{inspection_id} eliminada. "
-                                        "La placa permanece registrada."
-                                    )
-                                    st.rerun()
-                                else:
-                                    st.error(delete_msg)
+                                st.error(delete_msg)
 
         st.markdown("### Hallazgos de la unidad")
         if plate_findings.empty:
