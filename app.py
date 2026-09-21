@@ -1044,8 +1044,18 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
 
     st.markdown("### Seguimiento activo")
     f1, f2 = st.columns(2)
-    status = f1.multiselect("Estado", ["Abierto", "En proceso", "Subsanado"], default=["Abierto", "En proceso"])
-    criticality = f2.multiselect("Criticidad", ["Baja", "Media", "Alta", "Crítica"])
+    status = f1.multiselect(
+        "Estado",
+        ["Abierto", "En proceso", "Subsanado"],
+        default=[],
+        placeholder="Selecciona un estado",
+    )
+    criticality = f2.multiselect(
+        "Criticidad",
+        ["Baja", "Media", "Alta", "Crítica"],
+        default=[],
+        placeholder="Selecciona una criticidad",
+    )
     view = hallazgos.copy()
     if status: view = view[view["estado"].isin(status)]
     if criticality: view = view[view["criticidad"].isin(criticality)]
@@ -1074,6 +1084,15 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
             format_func=lambda x: f"#{x} · {view.loc[view['id'] == x, 'placa'].iloc[0]}",
         )
         selected_finding = view[view["id"] == record_id].iloc[0]
+        linked_inspection = pd.DataFrame()
+        linked_id_raw = pd.to_numeric(
+            selected_finding.get("inspeccion_id"), errors="coerce"
+        )
+        if pd.notna(linked_id_raw) and not inspecciones.empty and "id" in inspecciones:
+            linked_inspection = inspecciones[
+                pd.to_numeric(inspecciones["id"], errors="coerce") == int(linked_id_raw)
+            ]
+        linked_row = linked_inspection.iloc[0] if not linked_inspection.empty else None
         with st.form("edit_finding_form"):
             h1, h2, h3 = st.columns(3)
             edit_placa = h1.text_input("Placa", value=str(selected_finding.get("placa") or "")).upper().strip()
@@ -1096,6 +1115,38 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
                 value=str(selected_finding.get("descripcion") or ""),
                 height=100,
             )
+            if linked_row is not None:
+                st.markdown("##### Corregir cantidades verificadas")
+                q1, q2 = st.columns(2)
+                linked_cones_raw = pd.to_numeric(
+                    linked_row.get("conos_cantidad", 0), errors="coerce"
+                )
+                linked_chocks_raw = pd.to_numeric(
+                    linked_row.get("tacos_cantidad", 0), errors="coerce"
+                )
+                corrected_cones = q1.number_input(
+                    "Cantidad de conos",
+                    min_value=0,
+                    max_value=10,
+                    value=0 if pd.isna(linked_cones_raw) else int(linked_cones_raw),
+                    step=1,
+                    help="Mínimo conforme: 2 conos.",
+                )
+                corrected_chocks = q2.number_input(
+                    "Cantidad de tacos",
+                    min_value=0,
+                    max_value=10,
+                    value=0 if pd.isna(linked_chocks_raw) else int(linked_chocks_raw),
+                    step=1,
+                    help="Mínimo conforme: 2 tacos.",
+                )
+                st.caption(
+                    "Al guardar se actualizará la inspección vinculada y se recalculará el porcentaje."
+                )
+            else:
+                corrected_cones = None
+                corrected_chocks = None
+                st.info("Este hallazgo no tiene una inspección vinculada; solo se actualizarán sus datos.")
             j1, j2, j3 = st.columns(3)
             edit_responsible = j1.text_input(
                 "Responsable",
@@ -1122,7 +1173,15 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
             if not edit_placa or not edit_description or not edit_responsible:
                 st.error("Completa placa, descripción y responsable.")
             else:
-                final_status = "Subsanado" if edit_category == "Extintor operativo" else edit_status
+                quantity_resolved = (
+                    (edit_category == "Conos" and corrected_cones is not None and int(corrected_cones) >= 2)
+                    or (edit_category == "Tacos" and corrected_chocks is not None and int(corrected_chocks) >= 2)
+                )
+                final_status = (
+                    "Subsanado"
+                    if edit_category == "Extintor operativo" or quantity_resolved
+                    else edit_status
+                )
                 final_description = edit_description
                 if edit_category == "Extintor operativo" and "operativo" not in edit_description.lower():
                     final_description = f"Extintor operativo y vigente. {edit_description}".strip()
@@ -1139,13 +1198,39 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
                         "estado": final_status,
                     },
                 )
-                if ok and edit_category == "Extintor operativo":
-                    st.success("Hallazgo actualizado: extintor operativo y estado Subsanado.")
-                else:
-                    (st.success if ok else st.error)(msg)
-                if ok:
+                inspection_ok = True
+                inspection_msg = ""
+                if ok and linked_row is not None:
+                    cones_ok = int(corrected_cones) >= 2
+                    chocks_ok = int(corrected_chocks) >= 2
+                    bot_ok = bool(linked_row.get("botiquin", False))
+                    ext_ok = bool(linked_row.get("extintor", False))
+                    corrected_pct = int(sum([cones_ok, chocks_ok, bot_ok, ext_ok]) * 25)
+                    inspection_ok, inspection_msg = db.update(
+                        "inspecciones",
+                        int(linked_row["id"]),
+                        {
+                            "conos_cantidad": int(corrected_cones),
+                            "tacos_cantidad": int(corrected_chocks),
+                            "conos": cones_ok,
+                            "tacos": chocks_ok,
+                            "porcentaje_cumplimiento": corrected_pct,
+                            "resultado": "Conforme" if corrected_pct == 100 else "Observada",
+                        },
+                    )
+                if ok and inspection_ok:
+                    if edit_category == "Extintor operativo":
+                        st.success("Hallazgo actualizado: extintor operativo y estado Subsanado.")
+                    elif quantity_resolved:
+                        st.success("Cantidades corregidas y hallazgo marcado como Subsanado.")
+                    else:
+                        st.success("Hallazgo e inspección actualizados correctamente.")
                     load_all.clear()
                     st.rerun()
+                elif not ok:
+                    st.error(msg)
+                else:
+                    st.error(inspection_msg)
 
 
 def evidence_page(inspecciones: pd.DataFrame, hallazgos: pd.DataFrame) -> None:
