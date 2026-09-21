@@ -20,6 +20,8 @@ def apply_styles() -> None:
         .login-symbol .kaironix-symbol {width:72px;height:72px;filter:drop-shadow(0 8px 14px rgba(0,80,60,.16));}
         [data-testid="stAppViewContainer"]:has(.login-marker) .block-container {max-width:1420px;padding-top:1.2rem;}
         [data-testid="stAppViewContainer"]:has(.login-marker) [data-testid="stHeader"] {background:transparent;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) {background:radial-gradient(circle at 8% 12%,rgba(0,202,146,.24),transparent 24%),radial-gradient(circle at 92% 82%,rgba(0,159,115,.22),transparent 26%),linear-gradient(135deg,#04192c 0%,#06213a 48%,#003d38 100%);min-height:100vh;}
+        [data-testid="stAppViewContainer"]:has(.login-marker)::before {content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(68,221,175,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(68,221,175,.045) 1px,transparent 1px);background-size:64px 64px;}
         .login-hero {min-height:690px;border-radius:26px;background-size:cover;background-position:center;position:relative;overflow:hidden;box-shadow:0 20px 48px rgba(3,35,38,.18);}
         .login-hero-copy {position:absolute;left:42px;top:42px;max-width:470px;color:#fff;}
         .login-hero-copy>span {font-size:.72rem;letter-spacing:.2em;font-weight:850;color:#6ce9ba;}
@@ -36,6 +38,17 @@ def apply_styles() -> None:
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {max-width:480px;margin:0 auto;padding:24px;border-radius:20px;box-shadow:0 12px 30px rgba(7,27,53,.08);}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] button {background:linear-gradient(90deg,#008f68,#00b577);border:0;color:#fff;}
         .login-secure {text-align:center;color:#607286;font-size:.8rem;margin:18px 0 14px;}.login-pilot {text-align:center;color:#008f68;font-size:.8rem;font-weight:850;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {max-width:590px;margin:72px auto 0;padding:0 34px 30px;border:1px solid rgba(55,232,178,.52);border-radius:25px;background:linear-gradient(180deg,rgba(4,44,56,.96),rgba(3,25,47,.97));box-shadow:0 28px 70px rgba(0,0,0,.38);overflow:hidden;}
+        .dark-login-brand {display:flex;align-items:center;justify-content:center;gap:16px;margin:0 -34px 28px;padding:24px 28px 20px;background:linear-gradient(90deg,rgba(0,130,96,.32),rgba(3,28,50,.18));border-bottom:1px solid rgba(70,218,176,.23);}
+        .dark-login-brand .login-symbol {margin:0}.dark-login-brand .kaironix-symbol {width:62px;height:62px;}
+        .dark-login-brand h1 {margin:0;color:#fff;font-size:2rem;line-height:1}.dark-login-brand p {margin:6px 0 0;color:#42e3ad;font-weight:900;letter-spacing:.22em;font-size:.85rem;}
+        .dark-login-title {text-align:center;margin-bottom:24px}.dark-login-title h2 {color:#fff;font-size:1.55rem;margin:0 0 7px}.dark-login-title span {color:#90aabe;font-size:.78rem;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] label {color:#dce8f2;font-weight:750;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"] {background:#061a31;border:1px solid #18d79c;border-radius:13px;box-shadow:0 0 0 3px rgba(24,215,156,.08);min-height:52px;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"]:has(input[type="password"]) {border-color:#8796ff;box-shadow:0 0 0 3px rgba(135,150,255,.08);}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] input {color:#fff!important;-webkit-text-fill-color:#fff!important;}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] button[kind="primaryFormSubmit"] {margin-top:12px;background:linear-gradient(90deg,#11d89c,#29efb4);color:#022334;border:0;border-radius:13px;min-height:54px;font-size:1.02rem;font-weight:900;box-shadow:0 12px 25px rgba(20,221,161,.20);}
+        .dark-login-pilot {text-align:center;color:#79e8c5;font-size:.8rem;font-weight:800;margin-top:18px;letter-spacing:.03em;}
         .eyebrow {font-size:.78rem;font-weight:800;letter-spacing:.16em;color:#008f5a;text-transform:uppercase;}
         .page-title {font-size:2.2rem;font-weight:850;color:#071b35;margin:.15rem 0 .1rem;}
         .page-subtitle {color:#52657b;margin-bottom:1rem;}
@@ -99,6 +112,8 @@ def apply_styles() -> None:
           .login-hero-copy {left:22px;top:24px;max-width:300px}.login-hero-copy>span {font-size:.6rem}.login-hero-copy h2 {font-size:1.7rem;margin:10px 0}.login-hero-copy p {display:none;}
           .login-hero-footer {left:22px;bottom:20px;font-size:.75rem;}
           .login-brand {margin:26px 0 16px}.login-brand h1 {font-size:2rem}.login-brand .kaironix-symbol {width:62px;height:62px;}
+          [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {margin-top:28px;padding:0 20px 24px;border-radius:20px;}
+          .dark-login-brand {margin:0 -20px 24px;padding:20px}.dark-login-brand h1 {font-size:1.7rem}.dark-login-brand .kaironix-symbol {width:54px;height:54px;}
         }
         @media (min-width: 701px) and (max-width: 1200px) {
           .metric-card {padding:14px;min-height:140px;}

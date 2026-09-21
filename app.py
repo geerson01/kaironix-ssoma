@@ -105,27 +105,17 @@ def normalize_dates(frame: pd.DataFrame, column: str = "fecha") -> pd.DataFrame:
 
 def login_screen() -> None:
     st.markdown('<span class="login-marker"></span>', unsafe_allow_html=True)
-    visual, access = st.columns([1.25, 1], gap="large")
-    with visual:
-        st.markdown(
-            f'''<section class="login-hero" style="background-image:linear-gradient(180deg,rgba(0,49,46,.20),rgba(0,34,34,.82)),url('{login_background_data()}')">
-              <div class="login-hero-copy"><span>CONTROL PREVENTIVO DE FLOTA</span>
-              <h2>Flotas seguras.<br>Operaciones que<br><em>siempre avanzan.</em></h2>
-              <p>Inspección, prevención y trazabilidad para una operación logística más segura.</p></div>
-              <div class="login-hero-footer"><b>SEGURIDAD HOY.</b><small>OPERACIONES SIEMPRE.</small></div>
-            </section>''', unsafe_allow_html=True,
-        )
+    left, access, right = st.columns([1, 1.05, 1])
     with access:
-        st.markdown(
-            f"""<div class="login-brand">
-            <div class="login-symbol">{kaironix_icon()}</div>
-            <h1>Kaironix</h1><div class="login-product">SSOMA <b>360</b></div>
-            <p>Control preventivo de flota</p></div>""",
-            unsafe_allow_html=True,
-        )
         if not auth.configured():
             st.error("El proyecto todavía no tiene configuradas las credenciales de Supabase.")
         with st.form("login_form"):
+            st.markdown(
+                f"""<div class="dark-login-brand"><div class="login-symbol">{kaironix_icon()}</div>
+                <div><h1>Kaironix</h1><p>SSOMA 360</p></div></div>
+                <div class="dark-login-title"><h2>Acceso al sistema</h2><span>Sistema protegido · Solo personal autorizado</span></div>""",
+                unsafe_allow_html=True,
+            )
             identifier = st.text_input(
                 "Usuario",
                 value="",
@@ -140,7 +130,7 @@ def login_screen() -> None:
             if ok:
                 st.rerun()
             st.error(message)
-        st.markdown('<div class="login-secure">◈ Acceso exclusivo para usuarios autorizados</div><div class="login-pilot">● Piloto · CBC Huachipa</div>', unsafe_allow_html=True)
+        st.markdown('<div class="dark-login-pilot">● Piloto · CBC Huachipa</div>', unsafe_allow_html=True)
 
 
 def load_session_profile() -> dict:
