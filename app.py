@@ -558,7 +558,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             plate_inspections = plate_inspections.sort_values(
                 ["fecha_dt", "created_at"], ascending=False
             )
-        plate_findings = (
+        plate_findings = deduplicate_findings(
             hallazgos[
                 hallazgos["placa"].fillna("").astype(str).str.upper() == str(selected_plate).upper()
             ].copy()
