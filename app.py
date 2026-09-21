@@ -484,7 +484,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         use_container_width=False,
     )
 
-def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool, is_admin: bool) -> None:
+def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.DataFrame, can_edit: bool, is_admin: bool) -> None:
     page_header("MAESTRO DE FLOTA", "Unidades RANSA", "Consulta las placas, tipo de unidad y estado de su última inspección.")
 
     registered = set(unidades.get("placa", pd.Series(dtype=str)).astype(str).str.upper()) if not unidades.empty else set()
@@ -514,6 +514,118 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
         ordered["fecha"] = pd.to_datetime(ordered["fecha"], errors="coerce")
         ordered = ordered.sort_values(["fecha", "created_at"], ascending=False).drop_duplicates("placa")
         latest_status = dict(zip(ordered["placa"], ordered["resultado"]))
+
+    selected_plate = st.session_state.get("selected_unit_plate")
+    if selected_plate:
+        unit_rows = unidades[
+            unidades["placa"].fillna("").astype(str).str.upper() == str(selected_plate).upper()
+        ]
+        if unit_rows.empty:
+            st.session_state.pop("selected_unit_plate", None)
+            st.rerun()
+        unit_detail = unit_rows.iloc[0]
+        plate_inspections = (
+            inspecciones[
+                inspecciones["placa"].fillna("").astype(str).str.upper() == str(selected_plate).upper()
+            ].copy()
+            if not inspecciones.empty and "placa" in inspecciones else pd.DataFrame()
+        )
+        if not plate_inspections.empty:
+            plate_inspections["fecha_dt"] = pd.to_datetime(
+                plate_inspections["fecha"], errors="coerce"
+            )
+            plate_inspections = plate_inspections.sort_values(
+                ["fecha_dt", "created_at"], ascending=False
+            )
+        plate_findings = (
+            hallazgos[
+                hallazgos["placa"].fillna("").astype(str).str.upper() == str(selected_plate).upper()
+            ].copy()
+            if not hallazgos.empty and "placa" in hallazgos else pd.DataFrame()
+        )
+
+        if st.button("← Volver a la flota", key="back_to_fleet"):
+            st.session_state.pop("selected_unit_plate", None)
+            st.rerun()
+
+        current_status = latest_status.get(str(selected_plate), "Pendiente")
+        status_css = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending"}.get(current_status, "pending")
+        st.markdown(
+            f"""<div class="unit-profile-head">
+              <div class="unit-profile-truck">{professional_icon("truck")}</div>
+              <div><span>FICHA DE TRAZABILIDAD</span><h2>{escape(str(selected_plate))}</h2>
+              <p>{escape(str(unit_detail.get("tipo", "-")))} · {escape(str(unit_detail.get("empresa", "RANSA")))} · {escape(str(unit_detail.get("agencia", "Huachipa")))}</p></div>
+              <div class="fleet-status {status_css}"><span></span>{current_status}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+        if plate_inspections.empty:
+            st.info("Esta unidad todavía no tiene inspecciones registradas.")
+            return
+
+        latest_row = plate_inspections.iloc[0]
+        last_pct = int(pd.to_numeric(latest_row.get("porcentaje_cumplimiento", 0), errors="coerce") or 0)
+        last_date = str(latest_row.get("fecha", ""))[:10]
+        k1, k2, k3, k4 = st.columns(4)
+        profile_cards = [
+            ("✓", f"{last_pct}%", "Cumplimiento"),
+            ("📅", last_date, "Última inspección"),
+            ("⚠", len(plate_findings[plate_findings["estado"] != "Subsanado"]) if not plate_findings.empty and "estado" in plate_findings else 0, "Hallazgos abiertos"),
+            ("📷", int(plate_inspections.get("evidencia_url", pd.Series(dtype=str)).fillna("").ne("").sum()), "Evidencias"),
+        ]
+        for col, (icon, value, label) in zip((k1, k2, k3, k4), profile_cards):
+            with col:
+                st.markdown(f'<div class="profile-mini-card"><span>{icon}</span><b>{value}</b><small>{label}</small></div>', unsafe_allow_html=True)
+
+        st.markdown("### Estado actual de implementos")
+        i1, i2, i3, i4 = st.columns(4)
+        current_items = [
+            ("cone", "Conos", int(pd.to_numeric(latest_row.get("conos_cantidad", 0), errors="coerce") or 0), "unidades"),
+            ("chock", "Tacos", int(pd.to_numeric(latest_row.get("tacos_cantidad", 0), errors="coerce") or 0), "unidades"),
+            ("firstaid", "Botiquín", str(latest_row.get("botiquin_estado") or "Sin dato"), ""),
+            ("extinguisher", "Extintor", "Sí" if bool(latest_row.get("extintor_tiene", False)) else "No", ""),
+        ]
+        for col, (icon_name, label, value, suffix) in zip((i1, i2, i3, i4), current_items):
+            with col:
+                st.markdown(
+                    f'<div class="profile-item"><div>{professional_icon(icon_name)}</div><span>{label}</span><b>{escape(str(value))} {suffix}</b></div>',
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("### Historial, observaciones y evidencias")
+        for _, inspection in plate_inspections.iterrows():
+            inspection_id = int(inspection.get("id", 0))
+            inspection_date_text = str(inspection.get("fecha", ""))[:10]
+            inspection_result = str(inspection.get("resultado", "Registrada"))
+            inspection_pct = int(pd.to_numeric(inspection.get("porcentaje_cumplimiento", 0), errors="coerce") or 0)
+            with st.expander(
+                f"Inspección #{inspection_id} · {inspection_date_text} · {inspection_result} ({inspection_pct}%)",
+                expanded=False,
+            ):
+                st.write(f"**Inspector:** {inspection.get('inspector_nombre') or 'Sin dato'}")
+                st.write(f"**Observación:** {inspection.get('observacion') or 'Sin observación'}")
+                evidence_url = str(inspection.get("evidencia_url") or "").strip()
+                if evidence_url:
+                    st.image(evidence_url, caption=f"Evidencia · {selected_plate}", width=520)
+                else:
+                    st.info("Sin evidencia fotográfica en esta inspección.")
+
+        st.markdown("### Hallazgos de la unidad")
+        if plate_findings.empty:
+            st.success("La unidad no tiene hallazgos registrados.")
+        else:
+            for _, finding in plate_findings.sort_values("created_at", ascending=False).iterrows():
+                st.markdown(
+                    f"""<div class="unit-finding">
+                      <div><b>{escape(str(finding.get("categoria", "Hallazgo")))}</b>
+                      <span>{escape(str(finding.get("estado", "Abierto")))}</span></div>
+                      <p>{escape(str(finding.get("descripcion") or "Sin descripción"))}</p>
+                      <small>Responsable: {escape(str(finding.get("responsable") or "Sin asignar"))} · Compromiso: {escape(str(finding.get("fecha_compromiso") or "Sin fecha"))}</small>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+        return
 
     total = len(unidades)
     conformes = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Conforme")
@@ -549,11 +661,8 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
                         if ok:
                             load_all.clear(); st.rerun()
     st.markdown("### Flota operativa")
-    search = st.text_input("🔎 Buscar por placa o tipo")
+    st.caption("Selecciona una placa para consultar su estado, historial, observaciones y evidencias.")
     view = unidades.copy()
-    if search and not view.empty:
-        mask = view.astype(str).apply(lambda row: row.str.contains(search, case=False, na=False).any(), axis=1)
-        view = view[mask]
     if view.empty:
         st.warning("No hay unidades registradas en el maestro.")
         return
@@ -572,6 +681,9 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
                     <div class="fleet-status {css_status}"><span></span>{status}</div>
                     </div>''', unsafe_allow_html=True,
                 )
+                if st.button("Ver ficha completa", key=f"view_unit_{placa}", use_container_width=True):
+                    st.session_state.selected_unit_plate = placa
+                    st.rerun()
 
 
 def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile: dict) -> None:
@@ -1069,7 +1181,7 @@ can_edit = role in ("Administrador", "Inspector")
 unidades, inspecciones, hallazgos = load_all()
 
 if page == "Inicio": dashboard(unidades, inspecciones, hallazgos)
-elif page == "Unidades": units_page(unidades, inspecciones, can_edit, role == "Administrador")
+elif page == "Unidades": units_page(unidades, inspecciones, hallazgos, can_edit, role == "Administrador")
 elif page == "Nueva inspección":
     if can_edit: inspection_page(unidades, inspecciones, profile)
     else: st.warning("Tu perfil es de consulta y no permite registrar inspecciones.")
