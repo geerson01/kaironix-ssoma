@@ -311,7 +311,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: boo
                 )
 
 
-def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
+def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile: dict) -> None:
     page_header("VERIFICACIÓN OPERATIVA · PILOTO", "Nueva inspección", "Verifica los implementos obligatorios antes de la salida del camión.")
     if unidades.empty:
         st.warning("Primero registra por lo menos una unidad.")
@@ -324,6 +324,35 @@ def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
         c1, c2 = st.columns([1.4, 1])
         selected = c1.selectbox("Camión *", list(options))
         inspection_date = c2.date_input("Fecha de inspección", value=date.today())
+        unit = options[selected]
+        plate_key = str(unit["placa"]).upper().replace("-", "").replace(" ", "")
+        existing_inspection = pd.DataFrame()
+        if not inspecciones.empty and {"placa", "fecha"}.issubset(inspecciones.columns):
+            plate_keys = (
+                inspecciones["placa"].fillna("").astype(str).str.upper()
+                .str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+            )
+            inspection_dates = pd.to_datetime(
+                inspecciones["fecha"], errors="coerce"
+            ).dt.date
+            existing_inspection = inspecciones[
+                (plate_keys == plate_key) & (inspection_dates == inspection_date)
+            ]
+
+        already_registered = not existing_inspection.empty
+        if already_registered:
+            existing_row = existing_inspection.sort_values(
+                "created_at", ascending=False
+            ).iloc[0]
+            existing_id = existing_row.get("id", "")
+            existing_result = existing_row.get("resultado", "Registrada")
+            st.warning(
+                f"⚠️ La unidad {unit['placa']} ya fue inspeccionada el "
+                f"{inspection_date.strftime('%d/%m/%Y')}. "
+                f"Registro #{existing_id} · {existing_result}. "
+                "No se permitirá guardar una inspección duplicada."
+            )
+
         st.markdown("#### Implementos de seguridad")
         a, b, c, d = st.columns(4)
         with a:
@@ -364,12 +393,32 @@ def inspection_page(unidades: pd.DataFrame, profile: dict) -> None:
             st.error(f"El extintor está vencido desde el año {extintor_anio}.")
         observacion = st.text_area("Observación / acción inmediata")
         evidence = st.file_uploader("Evidencia fotográfica (opcional)", type=["jpg", "jpeg", "png", "webp"])
-        submitted = st.button("Guardar inspección", type="primary", use_container_width=True)
+        submitted = st.button(
+            "Inspección ya registrada" if already_registered else "Guardar inspección",
+            type="primary",
+            use_container_width=True,
+            disabled=already_registered,
+        )
     if submitted:
+        # Segunda validación antes de subir la foto y guardar, para evitar duplicados.
+        current = db.select(
+            "inspecciones",
+            {
+                "placa": f"eq.{unit['placa']}",
+                "fecha": f"eq.{inspection_date.isoformat()}",
+                "limit": "1",
+            },
+        )
+        if not current.empty:
+            st.error(
+                f"La unidad {unit['placa']} ya fue inspeccionada el "
+                f"{inspection_date.strftime('%d/%m/%Y')}. "
+                "El registro no se duplicó."
+            )
+            return
         ok_upload, evidence_url = db.upload_evidence(evidence, auth.current_auth().get("user_id", ""))
         if not ok_upload:
             st.error(evidence_url); return
-        unit = options[selected]
         payload = {"unidad_id": int(unit["id"]), "placa": unit["placa"], "fecha": inspection_date.isoformat(), "inspector_id": auth.current_auth().get("user_id"), "inspector_nombre": profile.get("nombre"), "conos": cumple_conos, "tacos": cumple_tacos, "botiquin": cumple_botiquin, "extintor": cumple_extintor, "conos_cantidad": int(conos_cantidad), "tacos_cantidad": int(tacos_cantidad), "botiquin_estado": botiquin_estado, "extintor_tiene": tiene_extintor == "Sí", "extintor_anio_vencimiento": int(extintor_anio), "porcentaje_cumplimiento": porcentaje, "resultado": resultado, "observacion": observacion, "evidencia_url": evidence_url}
         ok, msg = db.insert("inspecciones", payload)
         (st.success if ok else st.error)(f"{msg} Resultado: {resultado} ({porcentaje}%)." if ok else msg)
@@ -467,9 +516,16 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
 def evidence_page(inspecciones: pd.DataFrame, hallazgos: pd.DataFrame) -> None:
     page_header("TRAZABILIDAD VISUAL", "Evidencias", "Consulta las fotografías asociadas a inspecciones y hallazgos.")
     rows = []
+    seen = set()
     for source, frame in [("Inspección", inspecciones), ("Hallazgo", hallazgos)]:
         if not frame.empty and "evidencia_url" in frame:
             for _, row in frame[frame["evidencia_url"].fillna("") != ""].iterrows():
+                plate_key = str(row.get("placa", "")).upper().replace("-", "").replace(" ", "")
+                date_key = str(row.get("fecha", ""))[:10]
+                evidence_key = (source, plate_key, date_key)
+                if evidence_key in seen:
+                    continue
+                seen.add(evidence_key)
                 rows.append((source, row.get("placa", ""), row.get("fecha", ""), row.get("evidencia_url", "")))
     if not rows:
         st.info("Aún no existen evidencias fotográficas."); return
@@ -552,7 +608,7 @@ unidades, inspecciones, hallazgos = load_all()
 if page == "Inicio": dashboard(unidades, inspecciones, hallazgos)
 elif page == "Unidades": units_page(unidades, inspecciones, can_edit, role == "Administrador")
 elif page == "Nueva inspección":
-    if can_edit: inspection_page(unidades, profile)
+    if can_edit: inspection_page(unidades, inspecciones, profile)
     else: st.warning("Tu perfil es de consulta y no permite registrar inspecciones.")
 elif page == "Hallazgos": findings_page(hallazgos, inspecciones, can_edit)
 elif page == "Evidencias": evidence_page(inspecciones, hallazgos)
