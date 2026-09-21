@@ -974,7 +974,7 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
                 ref_options = ["Sin inspección vinculada"] + ([f"#{int(r['id'])} · {r['placa']} · {r['fecha']}" for _, r in observed.iterrows()] if not observed.empty else [])
                 ref = c1.selectbox("Inspección relacionada", ref_options)
                 placa = c2.text_input("Placa *").upper()
-                categoria = c3.selectbox("Categoría", ["Implementos", "Extintor vencido", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"])
+                categoria = c3.selectbox("Categoría", ["Implementos", "Extintor vencido", "Extintor operativo", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"])
                 descripcion = st.text_area("Descripción concreta del hallazgo *", height=110, placeholder="Describe qué se encontró, el riesgo y la acción inmediata requerida.")
                 c4, c5, c6 = st.columns(3)
                 criticidad = c4.selectbox("Criticidad", ["Baja", "Media", "Alta", "Crítica"])
@@ -1029,7 +1029,7 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
         with st.form("edit_finding_form"):
             h1, h2, h3 = st.columns(3)
             edit_placa = h1.text_input("Placa", value=str(selected_finding.get("placa") or "")).upper().strip()
-            category_options = ["Implementos", "Extintor vencido", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"]
+            category_options = ["Implementos", "Extintor vencido", "Extintor operativo", "Botiquín", "Conos", "Tacos", "Seguridad", "Otro"]
             old_category = str(selected_finding.get("categoria") or "Otro")
             edit_category = h2.selectbox(
                 "Categoría",
@@ -1074,20 +1074,27 @@ def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit:
             if not edit_placa or not edit_description or not edit_responsible:
                 st.error("Completa placa, descripción y responsable.")
             else:
+                final_status = "Subsanado" if edit_category == "Extintor operativo" else edit_status
+                final_description = edit_description
+                if edit_category == "Extintor operativo" and "operativo" not in edit_description.lower():
+                    final_description = f"Extintor operativo y vigente. {edit_description}".strip()
                 ok, msg = db.update(
                     "hallazgos",
                     record_id,
                     {
                         "placa": edit_placa,
                         "categoria": edit_category,
-                        "descripcion": edit_description,
+                        "descripcion": final_description,
                         "criticidad": edit_criticality,
                         "responsable": edit_responsible,
                         "fecha_compromiso": edit_commitment.isoformat(),
-                        "estado": edit_status,
+                        "estado": final_status,
                     },
                 )
-                (st.success if ok else st.error)(msg)
+                if ok and edit_category == "Extintor operativo":
+                    st.success("Hallazgo actualizado: extintor operativo y estado Subsanado.")
+                else:
+                    (st.success if ok else st.error)(msg)
                 if ok:
                     load_all.clear()
                     st.rerun()
