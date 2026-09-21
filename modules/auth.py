@@ -61,7 +61,6 @@ def create_auth_user(email: str, password: str, nombre: str) -> tuple[bool, str,
             f"{url}/auth/v1/admin/users",
             headers={
                 "apikey": service_key,
-                "Authorization": f"Bearer {service_key}",
                 "Content-Type": "application/json",
             },
             json={
