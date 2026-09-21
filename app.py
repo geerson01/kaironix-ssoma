@@ -45,7 +45,13 @@ def login_screen() -> None:
         if not auth.configured():
             st.error("El proyecto todavía no tiene configuradas las credenciales de Supabase.")
         with st.form("login_form"):
-            identifier = st.text_input("Usuario", placeholder="gllajae")
+            identifier = st.text_input(
+                "Usuario",
+                value="",
+                placeholder="",
+                autocomplete="off",
+                key="login_username",
+            )
             password = st.text_input("Contraseña", type="password")
             submitted = st.form_submit_button("Ingresar", use_container_width=True, type="primary")
         if submitted:
