@@ -164,33 +164,103 @@ def sidebar(profile: dict) -> str:
         key="main_navigation",
     )
     components.html(
-            """
-            <script>
-            (() => {
-              let attempts = 0;
-              const closeSidebar = () => {
-                attempts += 1;
-                const doc = window.parent.document;
-                const sidebar = doc.querySelector('[data-testid="stSidebar"]');
-                const collapseContainer = doc.querySelector(
-                  '[data-testid="stSidebarCollapseButton"]'
-                );
-                const collapseButton = collapseContainer
-                  ? (collapseContainer.querySelector('button') || collapseContainer)
-                  : null;
-                const sidebarVisible = sidebar && sidebar.getBoundingClientRect().width > 20;
-                if (sidebarVisible && collapseButton) {
-                  collapseButton.click();
-                  return;
-                }
-                if (attempts < 12) {
-                  setTimeout(closeSidebar, 150);
-                }
-              };
-              setTimeout(closeSidebar, 150);
-            })();
-            </script>
-            """,
+        """
+        <script>
+        (() => {
+          const doc = window.parent.document;
+          const storage = window.parent.sessionStorage;
+          const sidebarSelector = '[data-testid="stSidebar"]';
+          const radioSelector = sidebarSelector + ' [role="radio"]';
+
+          const ensureStyles = () => {
+            if (doc.getElementById('kaironix-sidebar-motion')) return;
+            const style = doc.createElement('style');
+            style.id = 'kaironix-sidebar-motion';
+            style.textContent = `
+              [data-testid="stSidebar"] {
+                transition: transform .28s ease, margin-left .28s ease !important;
+              }
+              body.kx-sidebar-hidden [data-testid="stSidebar"] {
+                transform: translateX(-105%) !important;
+                margin-left: calc(-1 * var(--kx-sidebar-width, 21rem)) !important;
+              }
+              #kx-sidebar-open {
+                position: fixed; top: 76px; left: 12px; z-index: 999999;
+                width: 42px; height: 42px; border: 0; border-radius: 11px;
+                background: #005b49; color: white; font-size: 23px;
+                box-shadow: 0 7px 18px rgba(0,55,43,.28); cursor: pointer;
+                display: none; align-items: center; justify-content: center;
+              }
+              body.kx-sidebar-hidden #kx-sidebar-open { display: flex; }
+              @media (max-width: 700px) {
+                #kx-sidebar-open { top: 64px; left: 8px; width: 39px; height: 39px; }
+              }
+            `;
+            doc.head.appendChild(style);
+          };
+
+          const ensureOpenButton = () => {
+            let button = doc.getElementById('kx-sidebar-open');
+            if (!button) {
+              button = doc.createElement('button');
+              button.id = 'kx-sidebar-open';
+              button.type = 'button';
+              button.title = 'Abrir menú';
+              button.setAttribute('aria-label', 'Abrir menú');
+              button.textContent = '☰';
+              button.addEventListener('click', () => {
+                doc.body.classList.remove('kx-sidebar-hidden');
+                storage.removeItem('kx-sidebar-closed');
+              });
+              doc.body.appendChild(button);
+            }
+          };
+
+          const hideSidebar = () => {
+            const sidebar = doc.querySelector(sidebarSelector);
+            if (!sidebar) return false;
+            const width = sidebar.getBoundingClientRect().width;
+            if (width > 20) {
+              doc.documentElement.style.setProperty('--kx-sidebar-width', width + 'px');
+            }
+            doc.body.classList.add('kx-sidebar-hidden');
+            storage.setItem('kx-sidebar-closed', '1');
+            return true;
+          };
+
+          const bindNavigation = () => {
+            const radios = doc.querySelectorAll(radioSelector);
+            radios.forEach((radio) => {
+              if (radio.dataset.kxBound === '1') return;
+              radio.dataset.kxBound = '1';
+              radio.addEventListener('click', () => {
+                storage.setItem('kx-sidebar-close-after-nav', '1');
+                setTimeout(hideSidebar, 80);
+              });
+            });
+            return radios.length > 0;
+          };
+
+          ensureStyles();
+          ensureOpenButton();
+
+          let attempts = 0;
+          const initialize = () => {
+            attempts += 1;
+            bindNavigation();
+            if (
+              storage.getItem('kx-sidebar-close-after-nav') === '1'
+              || storage.getItem('kx-sidebar-closed') === '1'
+            ) {
+              storage.removeItem('kx-sidebar-close-after-nav');
+              hideSidebar();
+            }
+            if (attempts < 20) setTimeout(initialize, 150);
+          };
+          initialize();
+        })();
+        </script>
+        """,
         height=0,
         width=0,
     )
