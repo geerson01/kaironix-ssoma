@@ -177,11 +177,18 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     latest = pd.DataFrame()
     if not ins.empty:
         latest = ins.sort_values(["fecha", "created_at"], ascending=False).drop_duplicates("placa")
+
+    open_h = (
+        hallazgos[hallazgos["estado"] != "Subsanado"].copy()
+        if not hallazgos.empty and "estado" in hallazgos
+        else pd.DataFrame()
+    )
     total = len(unidades)
     inspected = len(latest)
     conformes = int((latest.get("resultado", pd.Series(dtype=str)) == "Conforme").sum()) if not latest.empty else 0
     observadas = int((latest.get("resultado", pd.Series(dtype=str)) == "Observada").sum()) if not latest.empty else 0
     pending = max(total - inspected, 0)
+
     cols = st.columns(4)
     cards = [
         (professional_icon("truck"), total, "Unidades registradas", "Flota activa"),
@@ -192,34 +199,140 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     for col, card in zip(cols, cards):
         with col:
             metric_card(*card)
+
     st.write("")
-    c1, c2, c3 = st.columns([1, 1.25, 1])
+    c1, c2 = st.columns([1, 1.55])
     with c1:
         st.subheader("Cumplimiento general")
         values = [conformes, observadas, pending]
-        fig = go.Figure(go.Pie(values=values if sum(values) else [1], labels=["Conformes", "Observadas", "Pendientes"], hole=.72, marker_colors=["#00a86b", "#f59e0b", "#d7e1de"], textinfo="none"))
+        fig = go.Figure(go.Pie(
+            values=values if sum(values) else [1],
+            labels=["Conformes", "Observadas", "Pendientes"],
+            hole=.72,
+            marker_colors=["#00a86b", "#f59e0b", "#d7e1de"],
+            textinfo="none",
+        ))
         pct = round((conformes / total * 100), 1) if total else 0
-        fig.add_annotation(text=f"<b>{pct}%</b><br><span style='font-size:12px'>cumplimiento</span>", showarrow=False, font_size=24)
-        fig.update_layout(height=330, margin=dict(l=5, r=5, t=5, b=5), legend=dict(orientation="h", y=-.05))
+        fig.add_annotation(
+            text=f"<b>{pct}%</b><br><span style='font-size:12px'>cumplimiento</span>",
+            showarrow=False,
+            font_size=24,
+        )
+        fig.update_layout(
+            height=340,
+            margin=dict(l=5, r=5, t=5, b=5),
+            legend=dict(orientation="h", y=-.05),
+        )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
+
     with c2:
         st.subheader("Estado de implementos")
-        items = [("cone", "Conos", "conos"), ("chock", "Tacos", "tacos"), ("firstaid", "Botiquín", "botiquin"), ("extinguisher", "Extintor", "extintor")]
-        for icon_name, label, field in items:
-            count = int(latest[field].fillna(False).astype(bool).sum()) if not latest.empty and field in latest else 0
-            st.markdown(f'<div class="equipment-row">{professional_icon(icon_name)}<strong>{label}</strong><span>{count}/{inspected}</span></div>', unsafe_allow_html=True)
-            st.progress(count / inspected if inspected else 0)
-        st.info("Las barras se actualizan con la última inspección de cada unidad.")
-    with c3:
-        st.subheader("Alertas prioritarias")
-        open_h = hallazgos[hallazgos["estado"] != "Subsanado"] if not hallazgos.empty and "estado" in hallazgos else pd.DataFrame()
-        if open_h.empty:
-            st.markdown("<div style='text-align:center;padding:70px 5px'>🛡️<h3>Sin alertas registradas</h3><p>Las observaciones aparecerán aquí.</p></div>", unsafe_allow_html=True)
-        else:
-            for _, row in open_h.head(5).iterrows():
-                st.warning(f"**{row.get('placa','')} · {row.get('criticidad','')}**\n\n{row.get('descripcion','')}")
-    st.download_button("⬇ Exportar información a Excel", excel_bytes({"Unidades": unidades, "Inspecciones": inspecciones, "Hallazgos": hallazgos}), "reporte_ssoma_360.xlsx", use_container_width=False)
+        st.caption(f"Resultado de la última inspección de {inspected} unidades. Los hallazgos abiertos también descuentan cumplimiento.")
+        items = [
+            ("cone", "Conos", "conos", r"cono"),
+            ("chock", "Tacos", "tacos", r"taco"),
+            ("firstaid", "Botiquín", "botiquin", r"botiqu"),
+            ("extinguisher", "Extintor", "extintor", r"extintor"),
+        ]
+        finding_text = pd.Series(dtype=str)
+        if not open_h.empty:
+            finding_text = (
+                open_h.get("categoria", pd.Series("", index=open_h.index)).fillna("").astype(str)
+                + " "
+                + open_h.get("descripcion", pd.Series("", index=open_h.index)).fillna("").astype(str)
+            ).str.lower()
 
+        for icon_name, label, field, keyword in items:
+            compliant = pd.Series(False, index=latest.index, dtype=bool)
+            if not latest.empty and field in latest:
+                compliant = latest[field].fillna(False).astype(bool)
+            if not open_h.empty and not latest.empty:
+                risk_plates = set(
+                    open_h.loc[finding_text.str.contains(keyword, regex=True, na=False), "placa"]
+                    .fillna("").astype(str).str.upper()
+                )
+                compliant = compliant & ~latest["placa"].fillna("").astype(str).str.upper().isin(risk_plates)
+            ok_count = int(compliant.sum())
+            observed_count = max(inspected - ok_count, 0)
+            equipment_pct = round(ok_count / inspected * 100) if inspected else 0
+            tone = "good" if equipment_pct >= 80 else "warning" if equipment_pct >= 50 else "danger"
+            st.markdown(
+                f"""<div class="equipment-card">
+                  <div class="equipment-card-head">
+                    <span class="equipment-card-icon">{professional_icon(icon_name)}</span>
+                    <div><strong>{label}</strong><small>Mínimo operativo conforme</small></div>
+                    <div class="equipment-numbers"><b>{ok_count}/{inspected}</b><span>{observed_count} observados</span></div>
+                  </div>
+                  <div class="equipment-track"><span class="{tone}" style="width:{equipment_pct}%"></span></div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown('<div class="alerts-section-title"><div><span>CENTRO PREVENTIVO</span><h3>Alertas y acciones prioritarias</h3></div></div>', unsafe_allow_html=True)
+    if open_h.empty:
+        st.markdown(
+            '<div class="alerts-empty"><div>✓</div><h3>Sin alertas abiertas</h3><p>La flota no registra acciones pendientes.</p></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        alert_view = open_h.copy()
+        alert_view["fecha_compromiso_dt"] = pd.to_datetime(
+            alert_view.get("fecha_compromiso"), errors="coerce"
+        )
+        priority = {"Crítica": 0, "Alta": 1, "Media": 2, "Baja": 3}
+        alert_view["_priority"] = alert_view.get(
+            "criticidad", pd.Series("Baja", index=alert_view.index)
+        ).map(priority).fillna(4)
+        alert_view["_overdue"] = (
+            alert_view["fecha_compromiso_dt"].notna()
+            & (alert_view["fecha_compromiso_dt"] < today)
+        )
+        alert_view = alert_view.sort_values(
+            ["_overdue", "_priority", "fecha_compromiso_dt"],
+            ascending=[False, True, True],
+        )
+        critical_count = int(alert_view.get("criticidad", pd.Series(dtype=str)).isin(["Crítica", "Alta"]).sum())
+        overdue_count = int(alert_view["_overdue"].sum())
+        a1, a2, a3 = st.columns(3)
+        with a1:
+            st.markdown(f'<div class="alert-summary red"><b>{len(alert_view)}</b><span>Hallazgos abiertos</span></div>', unsafe_allow_html=True)
+        with a2:
+            st.markdown(f'<div class="alert-summary orange"><b>{critical_count}</b><span>Alta prioridad</span></div>', unsafe_allow_html=True)
+        with a3:
+            st.markdown(f'<div class="alert-summary navy"><b>{overdue_count}</b><span>Fuera de plazo</span></div>', unsafe_allow_html=True)
+
+        for _, row in alert_view.head(6).iterrows():
+            criticidad = str(row.get("criticidad", "Baja"))
+            css_level = {"Crítica": "critical", "Alta": "high", "Media": "medium", "Baja": "low"}.get(criticidad, "low")
+            due = row.get("fecha_compromiso_dt")
+            due_text = due.strftime("%d/%m/%Y") if pd.notna(due) else "Sin fecha"
+            overdue_badge = '<span class="overdue-badge">VENCIDA</span>' if bool(row.get("_overdue")) else ""
+            st.markdown(
+                f"""<div class="dashboard-alert {css_level}">
+                  <div class="dashboard-alert-main">
+                    <div class="dashboard-alert-plate">{escape(str(row.get("placa", "")))}</div>
+                    <div class="dashboard-alert-copy">
+                      <strong>{escape(str(row.get("categoria", "Hallazgo")))}</strong>
+                      <p>{escape(str(row.get("descripcion", "")))}</p>
+                    </div>
+                  </div>
+                  <div class="dashboard-alert-meta">
+                    <span class="priority-badge">{escape(criticidad)}</span>
+                    <span>Responsable: <b>{escape(str(row.get("responsable") or "Sin asignar"))}</b></span>
+                    <span>Compromiso: <b>{due_text}</b></span>{overdue_badge}
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        if len(alert_view) > 6:
+            st.caption(f"Se muestran 6 alertas prioritarias de {len(alert_view)} abiertas. Revisa el módulo Hallazgos para ver todas.")
+
+    st.download_button(
+        "⬇ Exportar información a Excel",
+        excel_bytes({"Unidades": unidades, "Inspecciones": inspecciones, "Hallazgos": hallazgos}),
+        "reporte_ssoma_360.xlsx",
+        use_container_width=False,
+    )
 
 def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool, is_admin: bool) -> None:
     page_header("MAESTRO DE FLOTA", "Unidades RANSA", "Consulta las placas, tipo de unidad y estado de su última inspección.")
