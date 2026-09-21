@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import calendar
 from datetime import date, timedelta
 from html import escape
 from io import BytesIO
@@ -26,6 +27,11 @@ MASTER_UNITS = [
     ("FF", "BYI783"), ("FF", "BYI781"), ("FF", "BYG838"),
     ("FF", "BYH875"), ("FF", "BYG742"), ("FF", "BYH813"),
     ("FF", "BYG833"),
+]
+
+MONTHS_ES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
 
@@ -483,12 +489,27 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
         with d:
             st.markdown(f'<div class="inspection-icon">{professional_icon("extinguisher")}<strong>Extintor</strong></div>', unsafe_allow_html=True)
             tiene_extintor = st.selectbox("¿Tiene extintor?", ["No", "Sí"])
-            extintor_anio = st.number_input("Año de vencimiento", min_value=date.today().year - 5, max_value=date.today().year + 10, value=date.today().year, step=1)
+            extintor_mes_nombre = st.selectbox(
+                "Mes de vencimiento",
+                MONTHS_ES,
+                index=date.today().month - 1,
+            )
+            extintor_mes = MONTHS_ES.index(extintor_mes_nombre) + 1
+            extintor_anio = st.number_input(
+                "Año de vencimiento",
+                min_value=date.today().year - 5,
+                max_value=date.today().year + 10,
+                value=date.today().year,
+                step=1,
+            )
 
         cumple_conos = conos_cantidad >= 2
         cumple_tacos = tacos_cantidad >= 2
         cumple_botiquin = botiquin_estado == "Completo y vigente"
-        cumple_extintor = tiene_extintor == "Sí" and extintor_anio >= date.today().year
+        cumple_extintor = (
+            tiene_extintor == "Sí"
+            and (int(extintor_anio), int(extintor_mes)) >= (date.today().year, date.today().month)
+        )
         criterios = [cumple_conos, cumple_tacos, cumple_botiquin, cumple_extintor]
         porcentaje = int(sum(criterios) * 25)
         resultado = "Conforme" if porcentaje == 100 else "Observada"
@@ -502,8 +523,14 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
             status_class = "ok" if resultado == "Conforme" else "bad"
             st.markdown(f'<div class="score-box {status_class}"><b>{porcentaje}%</b><span>{resultado}</span></div>', unsafe_allow_html=True)
 
-        if tiene_extintor == "Sí" and extintor_anio < date.today().year:
-            st.error(f"El extintor está vencido desde el año {extintor_anio}.")
+        if tiene_extintor == "Sí" and not cumple_extintor:
+            st.error(
+                f"El extintor está vencido: {extintor_mes_nombre} de {int(extintor_anio)}."
+            )
+        elif tiene_extintor == "Sí":
+            st.success(
+                f"Extintor vigente hasta {extintor_mes_nombre} de {int(extintor_anio)}."
+            )
         observacion = st.text_area("Observación / acción inmediata")
         evidence = st.file_uploader("Evidencia fotográfica (opcional)", type=["jpg", "jpeg", "png", "webp"])
         submitted = st.button(
@@ -533,12 +560,116 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
         if not ok_upload:
             st.error(evidence_url); return
         payload = {"unidad_id": int(unit["id"]), "placa": unit["placa"], "fecha": inspection_date.isoformat(), "inspector_id": auth.current_auth().get("user_id"), "inspector_nombre": profile.get("nombre"), "conos": cumple_conos, "tacos": cumple_tacos, "botiquin": cumple_botiquin, "extintor": cumple_extintor, "conos_cantidad": int(conos_cantidad), "tacos_cantidad": int(tacos_cantidad), "botiquin_estado": botiquin_estado, "extintor_tiene": tiene_extintor == "Sí", "extintor_anio_vencimiento": int(extintor_anio), "porcentaje_cumplimiento": porcentaje, "resultado": resultado, "observacion": observacion, "evidencia_url": evidence_url}
+        if "extintor_mes_vencimiento" in inspecciones.columns:
+            payload["extintor_mes_vencimiento"] = int(extintor_mes)
         ok, msg = db.insert("inspecciones", payload)
         (st.success if ok else st.error)(f"{msg} Resultado: {resultado} ({porcentaje}%)." if ok else msg)
         if ok:
             if resultado == "Observada":
                 st.warning("La unidad quedó observada. Registra el hallazgo y su responsable.")
             load_all.clear()
+
+
+    if not inspecciones.empty:
+        st.markdown("### Corregir una inspección registrada")
+        st.caption("Selecciona un registro para corregir información sin crear una inspección duplicada.")
+        recent = inspecciones.sort_values(["fecha", "created_at"], ascending=False).head(50)
+        edit_options = {
+            f"#{int(r['id'])} · {r.get('placa', '')} · {str(r.get('fecha', ''))[:10]}": r
+            for _, r in recent.iterrows()
+        }
+        edit_label = st.selectbox("Inspección a corregir", list(edit_options), key="edit_inspection")
+        edit_row = edit_options[edit_label]
+        with st.form("edit_inspection_form"):
+            e1, e2, e3 = st.columns(3)
+            edit_fecha_value = pd.to_datetime(edit_row.get("fecha"), errors="coerce")
+            edit_fecha = e1.date_input(
+                "Fecha de inspección",
+                value=edit_fecha_value.date() if pd.notna(edit_fecha_value) else date.today(),
+            )
+            edit_conos = e2.number_input(
+                "Cantidad de conos",
+                min_value=0, max_value=10,
+                value=int(pd.to_numeric(edit_row.get("conos_cantidad", 0), errors="coerce") or 0),
+            )
+            edit_tacos = e3.number_input(
+                "Cantidad de tacos",
+                min_value=0, max_value=10,
+                value=int(pd.to_numeric(edit_row.get("tacos_cantidad", 0), errors="coerce") or 0),
+            )
+            b1, b2, b3 = st.columns(3)
+            bot_options = ["No tiene", "Incompleto", "Completo y vigente"]
+            old_bot = str(edit_row.get("botiquin_estado") or "No tiene")
+            edit_botiquin = b1.selectbox(
+                "Estado del botiquín",
+                bot_options,
+                index=bot_options.index(old_bot) if old_bot in bot_options else 0,
+            )
+            edit_tiene_ext = b2.selectbox(
+                "¿Tiene extintor?",
+                ["No", "Sí"],
+                index=1 if bool(edit_row.get("extintor_tiene", False)) else 0,
+            )
+            old_month = int(pd.to_numeric(edit_row.get("extintor_mes_vencimiento", date.today().month), errors="coerce") or date.today().month)
+            old_month = min(max(old_month, 1), 12)
+            edit_mes_nombre = b3.selectbox("Mes de vencimiento", MONTHS_ES, index=old_month - 1)
+            edit_mes = MONTHS_ES.index(edit_mes_nombre) + 1
+            d1, d2 = st.columns([1, 2])
+            old_year = int(pd.to_numeric(edit_row.get("extintor_anio_vencimiento", date.today().year), errors="coerce") or date.today().year)
+            edit_anio = d1.number_input(
+                "Año de vencimiento",
+                min_value=date.today().year - 5,
+                max_value=date.today().year + 10,
+                value=old_year,
+            )
+            edit_observacion = d2.text_area(
+                "Observación / acción inmediata",
+                value=str(edit_row.get("observacion") or ""),
+            )
+            save_edit = st.form_submit_button("Guardar corrección", type="primary", use_container_width=True)
+
+        if save_edit:
+            record_id = int(edit_row["id"])
+            placa_edit = str(edit_row.get("placa", ""))
+            other_dates = pd.to_datetime(inspecciones.get("fecha"), errors="coerce").dt.date
+            duplicate = inspecciones[
+                (inspecciones["placa"].astype(str).str.upper() == placa_edit.upper())
+                & (other_dates == edit_fecha)
+                & (inspecciones["id"].astype(int) != record_id)
+            ]
+            if not duplicate.empty:
+                st.error(f"{placa_edit} ya tiene otra inspección registrada el {edit_fecha.strftime('%d/%m/%Y')}.")
+            else:
+                edit_conos_ok = int(edit_conos) >= 2
+                edit_tacos_ok = int(edit_tacos) >= 2
+                edit_bot_ok = edit_botiquin == "Completo y vigente"
+                edit_ext_ok = (
+                    edit_tiene_ext == "Sí"
+                    and (int(edit_anio), int(edit_mes)) >= (date.today().year, date.today().month)
+                )
+                edit_pct = int(sum([edit_conos_ok, edit_tacos_ok, edit_bot_ok, edit_ext_ok]) * 25)
+                edit_data = {
+                    "fecha": edit_fecha.isoformat(),
+                    "conos_cantidad": int(edit_conos),
+                    "tacos_cantidad": int(edit_tacos),
+                    "conos": edit_conos_ok,
+                    "tacos": edit_tacos_ok,
+                    "botiquin_estado": edit_botiquin,
+                    "botiquin": edit_bot_ok,
+                    "extintor_tiene": edit_tiene_ext == "Sí",
+                    "extintor_anio_vencimiento": int(edit_anio),
+                    "extintor": edit_ext_ok,
+                    "porcentaje_cumplimiento": edit_pct,
+                    "resultado": "Conforme" if edit_pct == 100 else "Observada",
+                    "observacion": edit_observacion,
+                }
+                if "extintor_mes_vencimiento" in inspecciones.columns:
+                    edit_data["extintor_mes_vencimiento"] = int(edit_mes)
+                ok, msg = db.update("inspecciones", record_id, edit_data)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    load_all.clear()
+                    st.rerun()
 
 
 def findings_page(hallazgos: pd.DataFrame, inspecciones: pd.DataFrame, can_edit: bool) -> None:
