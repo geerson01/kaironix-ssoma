@@ -676,10 +676,6 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                                 )
                                 if delete_ok:
                                     load_all.clear()
-                                    st.session_state.pop(
-                                        f"confirm_delete_inspection_{inspection_id}",
-                                        None,
-                                    )
                                     st.success(
                                         f"Inspección #{inspection_id} eliminada. "
                                         "La placa permanece registrada."
