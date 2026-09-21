@@ -15,11 +15,37 @@ def configured() -> bool:
     return bool(_secret("SUPABASE_URL") and _secret("SUPABASE_ANON_KEY"))
 
 
-def sign_in(email: str, password: str) -> tuple[bool, str]:
+def _resolve_login_email(identifier: str) -> str:
+    """Resuelve un usuario visible a su correo técnico de Supabase Auth."""
+    identifier = identifier.strip().lower()
+    if "@" in identifier:
+        return identifier
+    url = _secret("SUPABASE_URL")
+    secret_key = _secret("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not secret_key:
+        return ""
+    try:
+        response = requests.get(
+            f"{url}/rest/v1/profiles",
+            headers={"apikey": secret_key},
+            params={"select": "email", "username": f"eq.{identifier}", "limit": "1"},
+            timeout=20,
+        )
+        response.raise_for_status()
+        rows = response.json()
+        return str(rows[0].get("email", "")) if rows else ""
+    except requests.RequestException:
+        return ""
+
+
+def sign_in(identifier: str, password: str) -> tuple[bool, str]:
     url = _secret("SUPABASE_URL")
     key = _secret("SUPABASE_ANON_KEY")
     if not url or not key:
         return False, "Falta configurar Supabase en los Secrets de Streamlit."
+    email = _resolve_login_email(identifier)
+    if not email:
+        return False, "Usuario o contraseña incorrectos."
     try:
         response = requests.post(
             f"{url}/auth/v1/token?grant_type=password",
@@ -78,4 +104,3 @@ def create_auth_user(email: str, password: str, nombre: str) -> tuple[bool, str,
         return True, "Usuario creado correctamente.", user_id
     except requests.RequestException:
         return False, "No se pudo conectar con Supabase Auth.", ""
-

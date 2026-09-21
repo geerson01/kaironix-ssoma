@@ -45,11 +45,11 @@ def login_screen() -> None:
         if not auth.configured():
             st.error("El proyecto todavía no tiene configuradas las credenciales de Supabase.")
         with st.form("login_form"):
-            email = st.text_input("Correo electrónico", placeholder="usuario@empresa.com")
+            identifier = st.text_input("Usuario", placeholder="gllajae")
             password = st.text_input("Contraseña", type="password")
             submitted = st.form_submit_button("Ingresar", use_container_width=True, type="primary")
         if submitted:
-            ok, message = auth.sign_in(email, password)
+            ok, message = auth.sign_in(identifier, password)
             if ok:
                 st.rerun()
             st.error(message)
@@ -311,21 +311,24 @@ def users_page() -> None:
     with st.form("new_user", clear_on_submit=True):
         c1, c2 = st.columns(2)
         nombre = c1.text_input("Nombre completo *")
-        email = c2.text_input("Correo *")
+        username = c2.text_input("Usuario *", placeholder="gllajae").strip().lower()
         password = c1.text_input("Contraseña temporal *", type="password", help="Mínimo 8 caracteres")
         role = c2.selectbox("Rol", list(roles))
+        contact_email = st.text_input("Correo de contacto (opcional)", placeholder="persona@gmail.com")
         if st.form_submit_button("Crear usuario", type="primary"):
-            if not nombre or not email or len(password) < 8:
-                st.error("Completa los campos y usa una contraseña de mínimo 8 caracteres.")
+            valid_username = username and username.replace("_", "").replace("-", "").isalnum()
+            if not nombre or not valid_username or len(password) < 8:
+                st.error("Completa nombre y usuario. La contraseña debe tener mínimo 8 caracteres.")
             else:
-                ok, msg, user_id = auth.create_auth_user(email, password, nombre)
+                internal_email = f"{username}@kaironix.local"
+                ok, msg, user_id = auth.create_auth_user(internal_email, password, nombre)
                 if ok:
-                    ok2, msg2 = db.insert("profiles", {"id": user_id, "nombre": nombre, "email": email.lower(), "rol": role, "activo": True}, admin=True)
+                    ok2, msg2 = db.insert("profiles", {"id": user_id, "nombre": nombre, "username": username, "email": internal_email, "correo_contacto": contact_email.strip().lower() or None, "rol": role, "activo": True}, admin=True)
                     (st.success if ok2 else st.error)(msg2 if not ok2 else f"{msg} Rol asignado: {role}.")
                 else: st.error(msg)
     profiles = db.select("profiles", {"order": "created_at.desc"}, admin=True)
     if not profiles.empty:
-        st.dataframe(profiles[[c for c in ["nombre", "email", "rol", "activo", "created_at"] if c in profiles]], use_container_width=True, hide_index=True)
+        st.dataframe(profiles[[c for c in ["nombre", "username", "correo_contacto", "rol", "activo", "created_at"] if c in profiles]], use_container_width=True, hide_index=True)
 
 
 if not auth.current_auth():
@@ -353,4 +356,3 @@ elif page == "Hallazgos": findings_page(hallazgos, inspecciones, can_edit)
 elif page == "Evidencias": evidence_page(inspecciones, hallazgos)
 elif page == "Reportes": reports_page(unidades, inspecciones, hallazgos)
 elif page == "Usuarios" and role == "Administrador": users_page()
-
