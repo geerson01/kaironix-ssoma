@@ -168,14 +168,29 @@ def sidebar(profile: dict) -> str:
         components.html(
             """
             <script>
-            setTimeout(() => {
-              const doc = window.parent.document;
-              const target = doc.querySelector(
-                '[data-testid="stSidebarCollapseButton"] button, '
-                + '[data-testid="stSidebarCollapseButton"]'
-              );
-              if (target) target.click();
-            }, 120);
+            (() => {
+              let attempts = 0;
+              const closeSidebar = () => {
+                attempts += 1;
+                const doc = window.parent.document;
+                const sidebar = doc.querySelector('[data-testid="stSidebar"]');
+                const collapseContainer = doc.querySelector(
+                  '[data-testid="stSidebarCollapseButton"]'
+                );
+                const collapseButton = collapseContainer
+                  ? (collapseContainer.querySelector('button') || collapseContainer)
+                  : null;
+                const sidebarVisible = sidebar && sidebar.getBoundingClientRect().width > 20;
+                if (sidebarVisible && collapseButton) {
+                  collapseButton.click();
+                  return;
+                }
+                if (attempts < 12) {
+                  setTimeout(closeSidebar, 150);
+                }
+              };
+              setTimeout(closeSidebar, 150);
+            })();
             </script>
             """,
             height=0,
