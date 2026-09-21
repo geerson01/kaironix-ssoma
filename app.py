@@ -587,15 +587,17 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
                 "Fecha de inspección",
                 value=edit_fecha_value.date() if pd.notna(edit_fecha_value) else date.today(),
             )
+            old_cones_raw = pd.to_numeric(edit_row.get("conos_cantidad", 0), errors="coerce")
+            old_chocks_raw = pd.to_numeric(edit_row.get("tacos_cantidad", 0), errors="coerce")
             edit_conos = e2.number_input(
                 "Cantidad de conos",
                 min_value=0, max_value=10,
-                value=int(pd.to_numeric(edit_row.get("conos_cantidad", 0), errors="coerce") or 0),
+                value=0 if pd.isna(old_cones_raw) else int(old_cones_raw),
             )
             edit_tacos = e3.number_input(
                 "Cantidad de tacos",
                 min_value=0, max_value=10,
-                value=int(pd.to_numeric(edit_row.get("tacos_cantidad", 0), errors="coerce") or 0),
+                value=0 if pd.isna(old_chocks_raw) else int(old_chocks_raw),
             )
             b1, b2, b3 = st.columns(3)
             bot_options = ["No tiene", "Incompleto", "Completo y vigente"]
@@ -610,12 +612,20 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
                 ["No", "Sí"],
                 index=1 if bool(edit_row.get("extintor_tiene", False)) else 0,
             )
-            old_month = int(pd.to_numeric(edit_row.get("extintor_mes_vencimiento", date.today().month), errors="coerce") or date.today().month)
+            old_month_raw = pd.to_numeric(
+                edit_row.get("extintor_mes_vencimiento", date.today().month),
+                errors="coerce",
+            )
+            old_month = date.today().month if pd.isna(old_month_raw) else int(old_month_raw)
             old_month = min(max(old_month, 1), 12)
             edit_mes_nombre = b3.selectbox("Mes de vencimiento", MONTHS_ES, index=old_month - 1)
             edit_mes = MONTHS_ES.index(edit_mes_nombre) + 1
             d1, d2 = st.columns([1, 2])
-            old_year = int(pd.to_numeric(edit_row.get("extintor_anio_vencimiento", date.today().year), errors="coerce") or date.today().year)
+            old_year_raw = pd.to_numeric(
+                edit_row.get("extintor_anio_vencimiento", date.today().year),
+                errors="coerce",
+            )
+            old_year = date.today().year if pd.isna(old_year_raw) else int(old_year_raw)
             edit_anio = d1.number_input(
                 "Año de vencimiento",
                 min_value=date.today().year - 5,
