@@ -170,7 +170,12 @@ def sidebar(profile: dict) -> str:
           const doc = window.parent.document;
           const storage = window.parent.sessionStorage;
           const sidebarSelector = '[data-testid="stSidebar"]';
-          const radioSelector = sidebarSelector + ' [role="radio"]';
+          const radioSelector = [
+            sidebarSelector + ' [role="radio"]',
+            sidebarSelector + ' [role="radiogroup"] label',
+            sidebarSelector + ' [data-testid="stRadio"] label',
+            sidebarSelector + ' input[type="radio"]'
+          ].join(',');
 
           const ensureStyles = () => {
             if (doc.getElementById('kaironix-sidebar-motion')) return;
@@ -228,17 +233,20 @@ def sidebar(profile: dict) -> str:
             return true;
           };
 
+          const requestClose = () => {
+            storage.setItem('kx-sidebar-close-after-nav', '1');
+            hideSidebar();
+          };
+
           const bindNavigation = () => {
-            const radios = doc.querySelectorAll(radioSelector);
-            radios.forEach((radio) => {
-              if (radio.dataset.kxBound === '1') return;
-              radio.dataset.kxBound = '1';
-              radio.addEventListener('click', () => {
-                storage.setItem('kx-sidebar-close-after-nav', '1');
-                setTimeout(hideSidebar, 80);
-              });
+            const controls = doc.querySelectorAll(radioSelector);
+            controls.forEach((control) => {
+              if (control.dataset.kxBound === '1') return;
+              control.dataset.kxBound = '1';
+              control.addEventListener('pointerdown', requestClose, true);
+              control.addEventListener('click', requestClose, true);
             });
-            return radios.length > 0;
+            return controls.length > 0;
           };
 
           ensureStyles();
@@ -255,9 +263,12 @@ def sidebar(profile: dict) -> str:
               storage.removeItem('kx-sidebar-close-after-nav');
               hideSidebar();
             }
-            if (attempts < 20) setTimeout(initialize, 150);
+            if (attempts < 40) setTimeout(initialize, 150);
           };
           initialize();
+
+          const observer = new MutationObserver(() => bindNavigation());
+          observer.observe(doc.body, {childList: true, subtree: true});
         })();
         </script>
         """,
