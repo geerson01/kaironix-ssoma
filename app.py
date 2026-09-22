@@ -357,87 +357,141 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             metric_card(*card)
 
     st.write("")
-    c1, c2 = st.columns([1, 1.55])
+    progress_pct = round((inspected / total * 100), 1) if total else 0
+    compliance_pct = round((conformes / inspected * 100), 1) if inspected else 0
+
+    c1, c2 = st.columns(2)
     with c1:
-        st.subheader("Cumplimiento general")
-        values = [conformes, observadas, pending]
-        fig = go.Figure(go.Pie(
-            values=values if sum(values) else [1],
-            labels=[
-                f"Conformes ({conformes})",
-                f"Observadas ({observadas})",
-                f"Pendientes ({pending})",
-            ],
+        st.subheader("Avance de inspección")
+        progress_values = [inspected, pending] if total else [1]
+        progress_labels = [
+            f"Inspeccionadas ({inspected})",
+            f"Pendientes ({pending})",
+        ] if total else ["Sin unidades registradas"]
+        progress_colors = ["#007f68", "#cbd9d5"] if total else ["#e3ebe8"]
+        progress_fig = go.Figure(go.Pie(
+            values=progress_values,
+            labels=progress_labels,
             hole=.72,
-            marker_colors=["#00c878", "#ff9d00", "#cbd9d5"],
-            textinfo="value",
+            marker_colors=progress_colors,
+            textinfo="value" if total else "none",
             textposition="inside",
             textfont=dict(size=17, color="#ffffff"),
+            sort=False,
         ))
-        pct = round((conformes / total * 100), 1) if total else 0
-        fig.add_annotation(
-            text=f"<b>{pct}%</b><br><span style='font-size:12px'>cumplimiento</span>",
+        progress_fig.add_annotation(
+            text=(
+                f"<b>{progress_pct}%</b><br>"
+                f"<span style='font-size:12px'>{inspected} de {total} unidades</span>"
+            ),
             showarrow=False,
             font_size=24,
         )
-        fig.update_layout(
+        progress_fig.update_layout(
             height=340,
             margin=dict(l=5, r=5, t=5, b=5),
             legend=dict(orientation="h", y=-.08, font=dict(size=12)),
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False, "staticPlot": True})
+        st.plotly_chart(
+            progress_fig,
+            use_container_width=True,
+            config={"displayModeBar": False, "staticPlot": True},
+        )
 
     with c2:
-        st.subheader("Inventario de implementos registrado")
-        st.caption(
-            f"Cantidad física declarada en la última inspección de {inspected} unidades."
+        st.subheader("Cumplimiento de inspecciones")
+        without_result = max(inspected - conformes - observadas, 0)
+        if inspected:
+            compliance_values = [conformes, observadas]
+            compliance_labels = [
+                f"Conformes ({conformes})",
+                f"Observadas ({observadas})",
+            ]
+            compliance_colors = ["#00c878", "#ff9d00"]
+            if without_result:
+                compliance_values.append(without_result)
+                compliance_labels.append(f"Sin resultado ({without_result})")
+                compliance_colors.append("#cbd9d5")
+        else:
+            compliance_values = [1]
+            compliance_labels = ["Sin inspecciones"]
+            compliance_colors = ["#e3ebe8"]
+        compliance_fig = go.Figure(go.Pie(
+            values=compliance_values,
+            labels=compliance_labels,
+            hole=.72,
+            marker_colors=compliance_colors,
+            textinfo="value" if inspected else "none",
+            textposition="inside",
+            textfont=dict(size=17, color="#ffffff"),
+            sort=False,
+        ))
+        compliance_fig.add_annotation(
+            text=(
+                f"<b>{compliance_pct}%</b><br>"
+                f"<span style='font-size:12px'>{conformes} de {inspected} inspeccionadas</span>"
+            ),
+            showarrow=False,
+            font_size=24,
         )
-        total_conos = (
-            int(pd.to_numeric(latest.get("conos_cantidad"), errors="coerce").fillna(0).sum())
-            if not latest.empty and "conos_cantidad" in latest else 0
+        compliance_fig.update_layout(
+            height=340,
+            margin=dict(l=5, r=5, t=5, b=5),
+            legend=dict(orientation="h", y=-.08, font=dict(size=12)),
         )
-        total_tacos = (
-            int(pd.to_numeric(latest.get("tacos_cantidad"), errors="coerce").fillna(0).sum())
-            if not latest.empty and "tacos_cantidad" in latest else 0
+        st.plotly_chart(
+            compliance_fig,
+            use_container_width=True,
+            config={"displayModeBar": False, "staticPlot": True},
         )
-        total_botiquines = (
-            int(
-                latest["botiquin_estado"].fillna("").astype(str)
-                .str.strip().str.lower().ne("no tiene").sum()
+
+    st.subheader("Inventario de implementos registrado")
+    st.caption(
+        f"Cantidad física declarada en la última inspección de {inspected} unidades."
+    )
+    total_conos = (
+        int(pd.to_numeric(latest.get("conos_cantidad"), errors="coerce").fillna(0).sum())
+        if not latest.empty and "conos_cantidad" in latest else 0
+    )
+    total_tacos = (
+        int(pd.to_numeric(latest.get("tacos_cantidad"), errors="coerce").fillna(0).sum())
+        if not latest.empty and "tacos_cantidad" in latest else 0
+    )
+    total_botiquines = (
+        int(
+            latest["botiquin_estado"].fillna("").astype(str)
+            .str.strip().str.lower().ne("no tiene").sum()
+        )
+        if not latest.empty and "botiquin_estado" in latest else 0
+    )
+    total_extintores = (
+        int(latest["extintor_tiene"].fillna(False).astype(bool).sum())
+        if not latest.empty and "extintor_tiene" in latest else 0
+    )
+    inventory = [
+        ("cone", total_conos, "Conos", "unidades físicas registradas"),
+        ("chock", total_tacos, "Tacos", "unidades físicas registradas"),
+        ("firstaid", total_botiquines, "Botiquines", "camiones equipados"),
+        ("extinguisher", total_extintores, "Extintores", "camiones equipados"),
+    ]
+    inv_cols = st.columns(4)
+    for inv_col, (icon_name, quantity, label, unit_label) in zip(inv_cols, inventory):
+        with inv_col:
+            st.markdown(
+                f"""<div class="inventory-card {icon_name}">
+                  <div class="inventory-icon">{professional_icon(icon_name)}</div>
+                  <div class="inventory-copy">
+                    <span>{label}</span>
+                    <b>{quantity}</b>
+                    <small>{unit_label}</small>
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
             )
-            if not latest.empty and "botiquin_estado" in latest else 0
-        )
-        total_extintores = (
-            int(latest["extintor_tiene"].fillna(False).astype(bool).sum())
-            if not latest.empty and "extintor_tiene" in latest else 0
-        )
-        inventory = [
-            ("cone", total_conos, "Conos", "unidades físicas registradas"),
-            ("chock", total_tacos, "Tacos", "unidades físicas registradas"),
-            ("firstaid", total_botiquines, "Botiquines", "camiones equipados"),
-            ("extinguisher", total_extintores, "Extintores", "camiones equipados"),
-        ]
-        for row_start in range(0, len(inventory), 2):
-            inv_cols = st.columns(2)
-            for inv_col, (icon_name, quantity, label, unit_label) in zip(
-                inv_cols, inventory[row_start:row_start + 2]
-            ):
-                with inv_col:
-                    st.markdown(
-                        f"""<div class="inventory-card {icon_name}">
-                          <div class="inventory-icon">{professional_icon(icon_name)}</div>
-                          <div class="inventory-copy">
-                            <span>{label}</span>
-                            <b>{quantity}</b>
-                            <small>{unit_label}</small>
-                          </div>
-                        </div>""",
-                        unsafe_allow_html=True,
-                    )
-        st.markdown(
-            f'<div class="inventory-note">Base del conteo: última inspección de <b>{inspected}</b> unidades, sin duplicar placas.</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        f'<div class="inventory-note">Base del conteo: última inspección de <b>{inspected}</b> unidades, sin duplicar placas.</div>',
+        unsafe_allow_html=True,
+    )
 
     st.markdown('<div class="alerts-section-title"><div><span>CENTRO PREVENTIVO</span><h3>Alertas y acciones prioritarias</h3></div></div>', unsafe_allow_html=True)
     if open_h.empty:
