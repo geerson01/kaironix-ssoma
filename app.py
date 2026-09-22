@@ -376,7 +376,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             marker_colors=progress_colors,
             textinfo="value" if total else "none",
             textposition="inside",
-            textfont=dict(size=17, color="#ffffff"),
+            textfont=dict(size=17, color="#000000"),
             sort=False,
         ))
         progress_fig.add_annotation(
@@ -385,7 +385,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
                 f"<span style='font-size:12px'>{inspected} de {total} unidades</span>"
             ),
             showarrow=False,
-            font_size=24,
+            font=dict(size=24, color="#000000"),
         )
         progress_fig.update_layout(
             height=340,
@@ -423,7 +423,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             marker_colors=compliance_colors,
             textinfo="value" if inspected else "none",
             textposition="inside",
-            textfont=dict(size=17, color="#ffffff"),
+            textfont=dict(size=17, color="#000000"),
             sort=False,
         ))
         compliance_fig.add_annotation(
@@ -432,7 +432,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
                 f"<span style='font-size:12px'>{conformes} de {inspected} inspeccionadas</span>"
             ),
             showarrow=False,
-            font_size=24,
+            font=dict(size=24, color="#000000"),
         )
         compliance_fig.update_layout(
             height=340,
