@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import base64
 import calendar
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from html import escape
 from io import BytesIO
 from pathlib import Path
@@ -325,6 +326,29 @@ def load_all():
     )
 
 
+def revision_alerts(unidades: pd.DataFrame) -> list[tuple[int, str]]:
+    """Alertas ordenadas por urgencia según la fecha registrada para cada unidad."""
+    if unidades.empty or "revision_tecnica_vence" not in unidades.columns:
+        return []
+    today = datetime.now(ZoneInfo("America/Lima")).date()
+    alerts = []
+    for _, unit in unidades.iterrows():
+        expiry = pd.to_datetime(unit.get("revision_tecnica_vence"), errors="coerce")
+        if pd.isna(expiry):
+            continue
+        days = (expiry.date() - today).days
+        plate = escape(str(unit.get("placa") or "Sin placa"))
+        kind = escape(str(unit.get("tipo") or "Unidad"))
+        due = expiry.strftime("%d/%m/%Y")
+        if days < 0:
+            alerts.append((days, f"🚨 Placa {plate} · {kind}: revisión técnica vencida el {due} (hace {-days} días). Verifica su documentación antes de programarla."))
+        elif days == 0:
+            alerts.append((days, f"🚨 Placa {plate} · {kind}: la revisión técnica vence hoy, {due}. Verifica su renovación antes de programarla."))
+        elif days <= 30:
+            alerts.append((days, f"⚠️ Placa {plate} · {kind}: la revisión técnica vence el {due}, en {days} días. Programa su renovación."))
+    return sorted(alerts, key=lambda item: item[0])
+
+
 def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.DataFrame) -> None:
     page_header("CONTROL PREVENTIVO DE FLOTA", "Panel general SSOMA", "La información se actualiza con cada inspección registrada.")
     today = pd.Timestamp.today().normalize()
@@ -493,6 +517,21 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         unsafe_allow_html=True,
     )
 
+    st.markdown("### 🤖 Kaironix Guard · Revisión técnica")
+    if "revision_tecnica_vence" not in unidades.columns:
+        st.info("Activa el control documental añadiendo la columna revision_tecnica_vence a la tabla unidades en Supabase.")
+    else:
+        revision_messages = revision_alerts(unidades)
+        if revision_messages:
+            st.warning(f"{len(revision_messages)} unidad(es) requieren atención por revisión técnica.")
+            for _, message in revision_messages:
+                st.markdown(f"<div class='hint'>{message}</div>", unsafe_allow_html=True)
+        else:
+            st.success("Sin revisiones técnicas vencidas ni próximas a vencer entre las fechas registradas.")
+        missing_dates = int(unidades["revision_tecnica_vence"].isna().sum()) if not unidades.empty else 0
+        if missing_dates:
+            st.caption(f"{missing_dates} unidad(es) aún no tienen fecha de vencimiento registrada.")
+
     st.markdown('<div class="alerts-section-title"><div><span>CENTRO PREVENTIVO</span><h3>Alertas y acciones prioritarias</h3></div></div>', unsafe_allow_html=True)
     if open_h.empty:
         st.markdown(
@@ -634,6 +673,32 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             </div>""",
             unsafe_allow_html=True,
         )
+
+        st.markdown("### Revisión técnica")
+        expiry_raw = pd.to_datetime(unit_detail.get("revision_tecnica_vence"), errors="coerce")
+        expiry_date = expiry_raw.date() if pd.notna(expiry_raw) else None
+        if "revision_tecnica_vence" not in unidades.columns:
+            st.info("Pendiente activar el campo de revisión técnica en la base de datos.")
+        else:
+            if expiry_date:
+                for _, alert in revision_alerts(unit_rows):
+                    st.warning(alert)
+                if not revision_alerts(unit_rows):
+                    st.success(f"Vigente hasta el {expiry_date:%d/%m/%Y}.")
+            else:
+                st.info("Aún no se ha registrado la fecha de vencimiento de la revisión técnica.")
+            if can_edit:
+                with st.form(f"revision_tecnica_{unit_detail['id']}"):
+                    new_expiry = st.date_input("Fecha de vencimiento según certificado", value=expiry_date, format="DD/MM/YYYY")
+                    if st.form_submit_button("Guardar vencimiento", type="primary"):
+                        if new_expiry is None:
+                            st.error("Selecciona la fecha exacta que figura en el certificado.")
+                        else:
+                            ok, message = db.update("unidades", int(unit_detail["id"]), {"revision_tecnica_vence": new_expiry.isoformat()})
+                            (st.success if ok else st.error)(message)
+                            if ok:
+                                load_all.clear()
+                                st.rerun()
 
         if plate_inspections.empty:
             st.info("Esta unidad todavía no tiene inspecciones registradas.")
@@ -817,11 +882,12 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                 anio = c3.number_input("Año", 1990, date.today().year + 1, date.today().year)
                 agencia = c1.text_input("Agencia", value="Huachipa")
                 estado = c2.selectbox("Estado", ["Activo", "Mantenimiento", "Inactivo"])
+                revision_vence = c3.date_input("Revisión técnica vence (opcional)", value=None, format="DD/MM/YYYY") if "revision_tecnica_vence" in unidades.columns else None
                 if st.form_submit_button("Guardar unidad", type="primary"):
                     if not placa:
                         st.error("Ingresa la placa.")
                     else:
-                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id")})
+                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id"), **({"revision_tecnica_vence": revision_vence.isoformat()} if revision_vence else {})})
                         (st.success if ok else st.error)(msg)
                         if ok:
                             load_all.clear(); st.rerun()
