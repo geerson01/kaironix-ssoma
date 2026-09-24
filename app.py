@@ -1077,14 +1077,40 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
 
     if not inspecciones.empty:
         st.markdown("### Corregir una inspección registrada")
-        st.caption("Selecciona un registro para corregir información sin crear una inspección duplicada.")
-        recent = inspecciones.sort_values(["fecha", "created_at"], ascending=False).head(50)
-        edit_options = {
-            f"#{int(r['id'])} · {r.get('placa', '')} · {str(r.get('fecha', ''))[:10]}": r
-            for _, r in recent.iterrows()
-        }
-        edit_label = st.selectbox("Inspección a corregir", list(edit_options), key="edit_inspection")
-        edit_row = edit_options[edit_label]
+        st.caption("Escribe la placa para encontrar su inspección y corregir los datos o adjuntar una foto.")
+        plate_to_edit = st.text_input(
+            "Placa de la inspección a corregir",
+            placeholder="Ejemplo: BYG742",
+            key="inspection_plate_to_edit",
+        )
+        normalized_plate = plate_to_edit.upper().replace("-", "").replace(" ", "").strip()
+        if not normalized_plate:
+            st.info("Ingresa una placa para mostrar su inspección registrada.")
+            return
+        plate_values = (
+            inspecciones["placa"].fillna("").astype(str).str.upper()
+            .str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+        )
+        matches = inspecciones[plate_values == normalized_plate].sort_values(
+            ["fecha", "created_at"], ascending=False
+        )
+        if matches.empty:
+            st.info(f"No hay inspecciones registradas para la placa «{plate_to_edit.strip()}».")
+            return
+        if len(matches) == 1:
+            edit_row = matches.iloc[0]
+            st.success(f"Inspección encontrada: #{int(edit_row['id'])} · {str(edit_row.get('fecha', ''))[:10]}")
+        else:
+            edit_options = {
+                f"#{int(r['id'])} · {str(r.get('fecha', ''))[:10]}": r
+                for _, r in matches.iterrows()
+            }
+            edit_label = st.selectbox(
+                "Esta placa tiene varias inspecciones; elige la fecha a corregir",
+                list(edit_options),
+                key=f"edit_inspection_{normalized_plate}",
+            )
+            edit_row = edit_options[edit_label]
         with st.form("edit_inspection_form"):
             e1, e2, e3 = st.columns(3)
             edit_fecha_value = pd.to_datetime(edit_row.get("fecha"), errors="coerce")
