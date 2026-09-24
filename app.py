@@ -892,11 +892,28 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                         if ok:
                             load_all.clear(); st.rerun()
     st.markdown("### Flota operativa")
-    st.caption("Selecciona una placa para consultar su estado, historial, observaciones y evidencias.")
+    st.caption("Escribe una placa para encontrarla y abrir su ficha de trazabilidad.")
+    plate_search = st.text_input(
+        "Buscar placa",
+        placeholder="Ejemplo: BYG742",
+        key="fleet_plate_search",
+        help="Puedes escribir la placa completa o solo una parte; se ignoran espacios y guiones.",
+    )
     view = unidades.copy()
     if view.empty:
         st.warning("No hay unidades registradas en el maestro.")
         return
+    normalized_search = plate_search.upper().replace("-", "").replace(" ", "").strip()
+    if normalized_search:
+        normalized_plates = (
+            view["placa"].fillna("").astype(str).str.upper()
+            .str.replace("-", "", regex=False).str.replace(" ", "", regex=False)
+        )
+        view = view[normalized_plates.str.contains(normalized_search, regex=False)]
+        if view.empty:
+            st.info(f"No se encontró una unidad con la placa «{plate_search.strip()}».")
+            return
+        st.caption(f"{len(view)} unidad(es) encontrada(s). Pulsa «Ver ficha completa» en la tarjeta.")
     for start in range(0, len(view), 4):
         cols = st.columns(4)
         for col, (_, unit) in zip(cols, view.iloc[start:start + 4].iterrows()):
