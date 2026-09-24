@@ -8,9 +8,6 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.table import Table, TableStyleInfo
-from openpyxl.utils import get_column_letter
 
 import pandas as pd
 import plotly.express as px
@@ -119,6 +116,9 @@ apply_styles()
 
 def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
     """Genera hojas legibles con tablas, filtros y formato para revisión operativa."""
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.table import Table, TableStyleInfo
+    from openpyxl.utils import get_column_letter
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         for sheet_index, (name, frame) in enumerate(sheets.items(), start=1):
