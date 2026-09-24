@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import base64
+import json
+import time
+
 import requests
 import streamlit as st
 
@@ -60,6 +64,7 @@ def sign_in(identifier: str, password: str) -> tuple[bool, str]:
         st.session_state.auth = {
             "access_token": data.get("access_token", ""),
             "refresh_token": data.get("refresh_token", ""),
+            "expires_at": time.time() + int(data.get("expires_in", 3600)),
             "user_id": user.get("id", ""),
             "email": user.get("email", email),
         }
@@ -73,7 +78,50 @@ def sign_out() -> None:
     st.session_state.pop("profile", None)
 
 
+def _token_expiry(token: str) -> int:
+    try:
+        segment = token.split(".")[1]
+        payload = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+        return int(payload.get("exp", 0))
+    except (IndexError, ValueError, TypeError):
+        return 0
+
+
+def refresh_session(force: bool = False) -> bool:
+    session = st.session_state.get("auth", {})
+    if not session:
+        return False
+    expiry = session.get("expires_at") or _token_expiry(session.get("access_token", ""))
+    if not force and expiry and time.time() < float(expiry) - 120:
+        return True
+    refresh_token = session.get("refresh_token")
+    if not refresh_token:
+        return False
+    try:
+        response = requests.post(
+            f"{_secret('SUPABASE_URL')}/auth/v1/token?grant_type=refresh_token",
+            headers={"apikey": _secret("SUPABASE_ANON_KEY"), "Content-Type": "application/json"},
+            json={"refresh_token": refresh_token},
+            timeout=20,
+        )
+        response.raise_for_status()
+        data = response.json()
+        session["access_token"] = data["access_token"]
+        session["refresh_token"] = data.get("refresh_token", refresh_token)
+        session["expires_at"] = time.time() + int(data.get("expires_in", 3600))
+        st.session_state.auth = session
+        return True
+    except (requests.RequestException, KeyError, ValueError):
+        return False
+
+
 def current_auth() -> dict:
+    session = st.session_state.get("auth", {})
+    if not session:
+        return {}
+    if not refresh_session():
+        sign_out()
+        return {}
     return st.session_state.get("auth", {})
 
 
