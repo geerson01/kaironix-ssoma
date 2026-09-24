@@ -185,7 +185,7 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
             '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0"/>'
             '<xf numFmtId="0" fontId="3" fillId="5" borderId="0" xfId="0"/>'
             '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-            '</cellXfs></styleSheet>')
+            '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
         for index, (name, frame) in enumerate(sheet_items, 1):
             data = frame.copy()
             data.columns = [str(col).replace("_", " ").strip().title() for col in data.columns]
@@ -221,8 +221,8 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
                 '<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>'
                 '</sheetView></sheetViews>'
                 f'<cols>{widths}</cols><sheetData>{"".join(rows)}</sheetData>'
-                f'<mergeCells count="2"><mergeCell ref="A1:{last}2"/><mergeCell ref="A3:{last}3"/></mergeCells>'
-                f'<autoFilter ref="A5:{last}{end_row}"/></worksheet>')
+                f'<autoFilter ref="A5:{last}{end_row}"/>'
+                f'<mergeCells count="2"><mergeCell ref="A1:{last}2"/><mergeCell ref="A3:{last}3"/></mergeCells></worksheet>')
             book.writestr(f"xl/worksheets/sheet{index}.xml", worksheet)
     return output.getvalue()
 
