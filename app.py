@@ -8,6 +8,10 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.table import Table, TableStyleInfo
+from openpyxl.utils import get_column_letter
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -114,10 +118,72 @@ apply_styles()
 
 
 def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
+    """Genera hojas legibles con tablas, filtros y formato para revisión operativa."""
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for name, frame in sheets.items():
-            frame.to_excel(writer, sheet_name=name[:31], index=False)
+        for sheet_index, (name, frame) in enumerate(sheets.items(), start=1):
+            export = frame.copy()
+            export.columns = [str(col).replace("_", " ").strip().title() for col in export.columns]
+            # Una tabla de Excel requiere al menos una columna y encabezados únicos.
+            if export.empty and len(export.columns) == 0:
+                export = pd.DataFrame(columns=["Sin registros"])
+            export.to_excel(writer, sheet_name=name[:31], index=False, startrow=4)
+            ws = writer.sheets[name[:31]]
+            last_col = get_column_letter(max(len(export.columns), 1))
+            ws.merge_cells(f"A1:{last_col}2")
+            title = ws["A1"]
+            title.value = f"KAIRONIX SSOMA 360  |  {name.upper()}"
+            title.font = Font(name="Aptos Display", size=17, bold=True, color="FFFFFF")
+            title.fill = PatternFill("solid", fgColor="073B34")
+            title.alignment = Alignment(vertical="center", indent=1)
+            ws.row_dimensions[1].height = 24
+            ws.row_dimensions[2].height = 18
+            ws.merge_cells(f"A3:{last_col}3")
+            subtitle = ws["A3"]
+            subtitle.value = f"Control preventivo de flota · Huachipa    |    {len(export)} registros    |    Generado: {datetime.now(ZoneInfo('America/Lima')):%d/%m/%Y %H:%M}"
+            subtitle.font = Font(name="Aptos", size=10, color="315A55")
+            subtitle.alignment = Alignment(vertical="center", indent=1)
+            ws.row_dimensions[3].height = 27
+            ws.row_dimensions[4].height = 9
+            ws.row_dimensions[5].height = 27
+            for col_idx, column in enumerate(export.columns, start=1):
+                letter = get_column_letter(col_idx)
+                values = export.iloc[:, col_idx - 1].dropna().astype(str).head(250)
+                longest = max([len(str(column))] + [len(v) for v in values])
+                ws.column_dimensions[letter].width = min(max(longest + 3, 14), 44)
+                header = ws.cell(5, col_idx)
+                header.fill = PatternFill("solid", fgColor="087A60")
+                header.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
+                header.alignment = Alignment(vertical="center", wrap_text=True)
+                for row_idx in range(6, ws.max_row + 1):
+                    cell = ws.cell(row_idx, col_idx)
+                    cell.alignment = Alignment(vertical="center", wrap_text=True)
+                    cell.font = Font(name="Aptos", size=10, color="18334A")
+                    cell.border = Border(bottom=Side(style="hair", color="DFEAE7"))
+                    if "porcentaje" in str(column).lower() and isinstance(cell.value, (int, float)):
+                        cell.number_format = '0"%"'
+                    if str(column).lower() in ("resultado", "estado"):
+                        status = str(cell.value or "").strip().lower()
+                        if status in ("conforme", "subsanado", "activo"):
+                            cell.fill = PatternFill("solid", fgColor="DCF6E9")
+                            cell.font = Font(name="Aptos", size=10, bold=True, color="08704E")
+                        elif status in ("observada", "abierto", "crítica", "inactivo"):
+                            cell.fill = PatternFill("solid", fgColor="FCE7E4")
+                            cell.font = Font(name="Aptos", size=10, bold=True, color="A62F24")
+            if len(export):
+                table = Table(displayName=f"TablaSSOMA{sheet_index}", ref=f"A5:{last_col}{ws.max_row}")
+                table.tableStyleInfo = TableStyleInfo(
+                    name="TableStyleMedium2", showFirstColumn=False,
+                    showLastColumn=False, showRowStripes=True, showColumnStripes=False,
+                )
+                ws.add_table(table)
+            else:
+                ws.auto_filter.ref = f"A5:{last_col}5"
+            ws.freeze_panes = "A6"
+            ws.sheet_view.showGridLines = False
+            ws.sheet_properties.pageSetUpPr.fitToPage = True
+            ws.page_setup.fitToWidth = 1
+            ws.print_title_rows = "1:5"
     return output.getvalue()
 
 
