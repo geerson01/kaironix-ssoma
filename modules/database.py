@@ -6,6 +6,8 @@ import pandas as pd
 import requests
 import streamlit as st
 
+from modules import auth
+
 
 def _secret(name: str) -> str:
     try:
@@ -48,6 +50,13 @@ def select(table: str, params: dict | None = None, admin: bool = False) -> pd.Da
     query.update(params or {})
     try:
         response = requests.get(_endpoint(table), headers=_headers(admin), params=query, timeout=25)
+        if response.status_code == 401 and not admin:
+            if auth.refresh_session(force=True):
+                response = requests.get(_endpoint(table), headers=_headers(), params=query, timeout=25)
+            if response.status_code == 401:
+                auth.sign_out()
+                st.error("Tu sesión venció. Inicia sesión nuevamente para consultar los datos.")
+                st.stop()
         response.raise_for_status()
         return pd.DataFrame(response.json())
     except Exception as exc:
