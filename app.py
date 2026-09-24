@@ -1019,6 +1019,7 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
                 f"Extintor vigente hasta {extintor_mes_nombre} de {int(extintor_anio)}."
             )
         observacion = st.text_area("Observación / acción inmediata")
+        st.caption("Para adjuntar una foto guardada en el celular, toca «Browse files» o «Seleccionar archivo», elige la imagen y espera a que aparezca su nombre antes de guardar.")
         evidence = st.file_uploader("Evidencia fotográfica (opcional)", type=["jpg", "jpeg", "png", "webp"])
         submitted = st.button(
             "Inspección ya registrada" if already_registered else "Guardar inspección",
@@ -1123,6 +1124,16 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
                 "Observación / acción inmediata",
                 value=str(edit_row.get("observacion") or ""),
             )
+            existing_evidence = str(edit_row.get("evidencia_url") or "").strip()
+            if existing_evidence and existing_evidence.lower() != "nan":
+                st.info("Esta inspección ya tiene evidencia. Si eliges otra foto, reemplazará el enlace de la foto anterior.")
+            else:
+                st.info("Esta inspección todavía no tiene fotografía. Selecciona la foto guardada en tu celular para adjuntarla.")
+            edit_evidence = st.file_uploader(
+                "Agregar o reemplazar evidencia fotográfica",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"edit_evidence_{int(edit_row['id'])}",
+            )
             save_edit = st.form_submit_button("Guardar corrección", type="primary", use_container_width=True)
 
         if save_edit:
@@ -1162,8 +1173,18 @@ def inspection_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, profile:
                 }
                 if "extintor_mes_vencimiento" in inspecciones.columns:
                     edit_data["extintor_mes_vencimiento"] = int(edit_mes)
+                if edit_evidence is not None:
+                    upload_ok, uploaded_url = db.upload_evidence(
+                        edit_evidence, auth.current_auth().get("user_id", "")
+                    )
+                    if not upload_ok:
+                        st.error(uploaded_url)
+                        return
+                    edit_data["evidencia_url"] = uploaded_url
                 ok, msg = db.update("inspecciones", record_id, edit_data)
-                (st.success if ok else st.error)(msg)
+                (st.success if ok else st.error)(
+                    "Inspección y fotografía guardadas correctamente." if ok and edit_evidence is not None else msg
+                )
                 if ok:
                     load_all.clear()
                     st.rerun()
