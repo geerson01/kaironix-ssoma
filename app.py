@@ -167,10 +167,10 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
             '</Relationships>')
         book.writestr("xl/styles.xml", '<?xml version="1.0" encoding="UTF-8"?>'
             '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            '<fonts count="4"><font><sz val="10"/><name val="Aptos"/><color rgb="FF18334A"/></font>'
+            '<fonts count="5"><font><sz val="10"/><name val="Aptos"/><color rgb="FF18334A"/></font>'
             '<font><b/><sz val="16"/><name val="Aptos"/><color rgb="FFFFFFFF"/></font>'
             '<font><b/><sz val="10"/><name val="Aptos"/><color rgb="FFFFFFFF"/></font>'
-            '<font><b/><sz val="10"/><name val="Aptos"/><color rgb="FF08704E"/></font></fonts>'
+            '<font><b/><sz val="10"/><name val="Aptos"/><color rgb="FF08704E"/></font><font><u/><sz val="10"/><name val="Aptos"/><color rgb="FF0563C1"/></font></fonts>'
             '<fills count="6"><fill><patternFill patternType="none"/></fill>'
             '<fill><patternFill patternType="gray125"/></fill>'
             '<fill><patternFill patternType="solid"><fgColor rgb="FF073B34"/></patternFill></fill>'
@@ -179,12 +179,13 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
             '<fill><patternFill patternType="solid"><fgColor rgb="FFDCF6E9"/></patternFill></fill></fills>'
             '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
             '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            '<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"/>'
             '<xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0"/>'
             '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0"/>'
             '<xf numFmtId="0" fontId="3" fillId="5" borderId="0" xfId="0"/>'
             '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0"/>'
             '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
         for index, (name, frame) in enumerate(sheet_items, 1):
             data = frame.copy()
@@ -203,6 +204,8 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
                 '<row r="5" ht="26" customHeight="1">' +
                 ''.join(cell_xml(column, f"{column_letter(i)}5", 2) for i, column in enumerate(columns, 1)) + '</row>',
             ]
+            hyperlinks = []
+            relationships = []
             for row_number, values in enumerate(data.itertuples(index=False, name=None), 6):
                 cells = []
                 for col_number, (column, value) in enumerate(zip(columns, values), 1):
@@ -211,19 +214,38 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
                         style = 4
                     if "porcentaje" in str(column).lower() and isinstance(value, (int, float)):
                         style = 5
-                    cells.append(cell_xml(value, f"{column_letter(col_number)}{row_number}", style))
+                    reference = f"{column_letter(col_number)}{row_number}"
+                    if str(column).lower() == "evidencia url" and isinstance(value, str) and value.startswith(("https://", "http://")):
+                        relation_id = f"rId{len(relationships) + 1}"
+                        safe_url = xml_escape(value, {'"': "&quot;"})
+                        relationships.append(
+                            f'<Relationship Id="{relation_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="{safe_url}" TargetMode="External"/>'
+                        )
+                        hyperlinks.append(f'<hyperlink ref="{reference}" r:id="{relation_id}"/>')
+                        cells.append(cell_xml("Abrir foto", reference, 6))
+                    else:
+                        cells.append(cell_xml(value, reference, style))
                 rows.append(f'<row r="{row_number}" ht="25" customHeight="1">' + ''.join(cells) + '</row>')
             end_row = max(5, len(data) + 5)
             worksheet = ('<?xml version="1.0" encoding="UTF-8"?>'
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
                 f'<dimension ref="A1:{last}{end_row}"/>'
                 '<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
                 '<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>'
                 '</sheetView></sheetViews>'
                 f'<cols>{widths}</cols><sheetData>{"".join(rows)}</sheetData>'
                 f'<autoFilter ref="A5:{last}{end_row}"/>'
-                f'<mergeCells count="2"><mergeCell ref="A1:{last}2"/><mergeCell ref="A3:{last}3"/></mergeCells></worksheet>')
+                f'<mergeCells count="2"><mergeCell ref="A1:{last}2"/><mergeCell ref="A3:{last}3"/></mergeCells>'
+                + (f'<hyperlinks>{"".join(hyperlinks)}</hyperlinks>' if hyperlinks else "")
+                + '</worksheet>')
             book.writestr(f"xl/worksheets/sheet{index}.xml", worksheet)
+            if relationships:
+                book.writestr(
+                    f"xl/worksheets/_rels/sheet{index}.xml.rels",
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    + "".join(relationships) + "</Relationships>",
+                )
     return output.getvalue()
 
 def normalize_dates(frame: pd.DataFrame, column: str = "fecha") -> pd.DataFrame:
