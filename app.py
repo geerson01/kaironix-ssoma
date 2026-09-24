@@ -117,6 +117,65 @@ st.set_page_config(page_title="Kaironix SSOMA 360", page_icon=str(LOGO_PATH), la
 apply_styles()
 
 
+def inspection_export(frame: pd.DataFrame) -> pd.DataFrame:
+    """Prepara una vista legible sin modificar los ID de la base de datos."""
+    source = frame.copy()
+    sort_fields = [field for field in ("fecha", "id") if field in source.columns]
+    if sort_fields:
+        source = source.sort_values(sort_fields, kind="stable").reset_index(drop=True)
+    else:
+        source = source.reset_index(drop=True)
+
+    def field(name: str, default=None) -> pd.Series:
+        return source[name] if name in source.columns else pd.Series([default] * len(source))
+
+    def quantity(name: str) -> pd.Series:
+        return pd.to_numeric(field(name), errors="coerce").map(
+            lambda value: int(value) if pd.notna(value) else None
+        )
+
+    def kit_count(value):
+        if value is None or pd.isna(value):
+            return None
+        state = str(value).strip().lower()
+        if not state or state in ("nan", "none"):
+            return None
+        return 0 if state in ("no tiene", "sin botiquín", "sin botiquin") else 1
+
+    def extinguisher_count(value):
+        if value is None or pd.isna(value):
+            return None
+        return int(value) if isinstance(value, bool) else (
+            0 if str(value).strip().lower() in ("no", "false", "0") else 1
+        )
+
+    def optional(value):
+        if value is None or pd.isna(value) or value is False:
+            return None
+        if isinstance(value, (int, float)) and value == 0:
+            return None
+        return value
+
+    return pd.DataFrame({
+        "N.º": range(1, len(source) + 1),
+        "Placa": field("placa"),
+        "Fecha": field("fecha").astype(str).str[:10],
+        "Inspector": field("inspector_nombre"),
+        "Conos": quantity("conos_cantidad"),
+        "Tacos": quantity("tacos_cantidad"),
+        "Botiquín": field("botiquin_estado").map(kit_count),
+        "Extintor": field("extintor_tiene").map(extinguisher_count),
+        "Kilometraje": field("kilometraje").map(optional),
+        "Luces": field("luces").map(optional),
+        "Neumáticos": field("neumaticos").map(optional),
+        "Cinturones": field("cinturones").map(optional),
+        "Documentos": field("documentos").map(optional),
+        "Resultado": field("resultado"),
+        "Observación": field("observacion"),
+        "Evidencia URL": field("evidencia_url"),
+    })
+
+
 def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
     """Crea un XLSX con tablas visuales sin paquetes adicionales."""
     def cell_xml(value, reference: str, style: int = 0) -> str:
@@ -188,7 +247,7 @@ def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
             '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0"/>'
             '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
         for index, (name, frame) in enumerate(sheet_items, 1):
-            data = frame.copy()
+            data = inspection_export(frame) if name.lower() == "inspecciones" else frame.copy()
             data.columns = [str(col).replace("_", " ").strip().title() for col in data.columns]
             if not len(data.columns):
                 data = pd.DataFrame(columns=["Sin registros"])
