@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import base64
 import calendar
+import math
+import zipfile
+from xml.sax.saxutils import escape as xml_escape
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from html import escape
@@ -115,77 +118,113 @@ apply_styles()
 
 
 def excel_bytes(sheets: dict[str, pd.DataFrame]) -> bytes:
-    """Genera hojas legibles con tablas, filtros y formato para revisión operativa."""
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-    from openpyxl.table import Table, TableStyleInfo
-    from openpyxl.utils import get_column_letter
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        for sheet_index, (name, frame) in enumerate(sheets.items(), start=1):
-            export = frame.copy()
-            export.columns = [str(col).replace("_", " ").strip().title() for col in export.columns]
-            # Una tabla de Excel requiere al menos una columna y encabezados únicos.
-            if export.empty and len(export.columns) == 0:
-                export = pd.DataFrame(columns=["Sin registros"])
-            export.to_excel(writer, sheet_name=name[:31], index=False, startrow=4)
-            ws = writer.sheets[name[:31]]
-            last_col = get_column_letter(max(len(export.columns), 1))
-            ws.merge_cells(f"A1:{last_col}2")
-            title = ws["A1"]
-            title.value = f"KAIRONIX SSOMA 360  |  {name.upper()}"
-            title.font = Font(name="Aptos Display", size=17, bold=True, color="FFFFFF")
-            title.fill = PatternFill("solid", fgColor="073B34")
-            title.alignment = Alignment(vertical="center", indent=1)
-            ws.row_dimensions[1].height = 24
-            ws.row_dimensions[2].height = 18
-            ws.merge_cells(f"A3:{last_col}3")
-            subtitle = ws["A3"]
-            subtitle.value = f"Control preventivo de flota · Huachipa    |    {len(export)} registros    |    Generado: {datetime.now(ZoneInfo('America/Lima')):%d/%m/%Y %H:%M}"
-            subtitle.font = Font(name="Aptos", size=10, color="315A55")
-            subtitle.alignment = Alignment(vertical="center", indent=1)
-            ws.row_dimensions[3].height = 27
-            ws.row_dimensions[4].height = 9
-            ws.row_dimensions[5].height = 27
-            for col_idx, column in enumerate(export.columns, start=1):
-                letter = get_column_letter(col_idx)
-                values = export.iloc[:, col_idx - 1].dropna().astype(str).head(250)
-                longest = max([len(str(column))] + [len(v) for v in values])
-                ws.column_dimensions[letter].width = min(max(longest + 3, 14), 44)
-                header = ws.cell(5, col_idx)
-                header.fill = PatternFill("solid", fgColor="087A60")
-                header.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
-                header.alignment = Alignment(vertical="center", wrap_text=True)
-                for row_idx in range(6, ws.max_row + 1):
-                    cell = ws.cell(row_idx, col_idx)
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
-                    cell.font = Font(name="Aptos", size=10, color="18334A")
-                    cell.border = Border(bottom=Side(style="hair", color="DFEAE7"))
-                    if "porcentaje" in str(column).lower() and isinstance(cell.value, (int, float)):
-                        cell.number_format = '0"%"'
-                    if str(column).lower() in ("resultado", "estado"):
-                        status = str(cell.value or "").strip().lower()
-                        if status in ("conforme", "subsanado", "activo"):
-                            cell.fill = PatternFill("solid", fgColor="DCF6E9")
-                            cell.font = Font(name="Aptos", size=10, bold=True, color="08704E")
-                        elif status in ("observada", "abierto", "crítica", "inactivo"):
-                            cell.fill = PatternFill("solid", fgColor="FCE7E4")
-                            cell.font = Font(name="Aptos", size=10, bold=True, color="A62F24")
-            if len(export):
-                table = Table(displayName=f"TablaSSOMA{sheet_index}", ref=f"A5:{last_col}{ws.max_row}")
-                table.tableStyleInfo = TableStyleInfo(
-                    name="TableStyleMedium2", showFirstColumn=False,
-                    showLastColumn=False, showRowStripes=True, showColumnStripes=False,
-                )
-                ws.add_table(table)
-            else:
-                ws.auto_filter.ref = f"A5:{last_col}5"
-            ws.freeze_panes = "A6"
-            ws.sheet_view.showGridLines = False
-            ws.sheet_properties.pageSetUpPr.fitToPage = True
-            ws.page_setup.fitToWidth = 1
-            ws.print_title_rows = "1:5"
-    return output.getvalue()
+    """Crea un XLSX con tablas visuales sin paquetes adicionales."""
+    def cell_xml(value, reference: str, style: int = 0) -> str:
+        if value is None or (not isinstance(value, (list, tuple, dict)) and pd.isna(value)):
+            return f'<c r="{reference}" s="{style}"/>'
+        if isinstance(value, bool):
+            return f'<c r="{reference}" s="{style}" t="b"><v>{int(value)}</v></c>'
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            return f'<c r="{reference}" s="{style}"><v>{value}</v></c>'
+        text_value = xml_escape(str(value), {'"': '&quot;'})
+        return f'<c r="{reference}" s="{style}" t="inlineStr"><is><t>{text_value}</t></is></c>'
 
+    def column_letter(number: int) -> str:
+        result = ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            result = chr(65 + remainder) + result
+        return result
+
+    output = BytesIO()
+    sheet_items = list(sheets.items())
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as book:
+        book.writestr("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            + ''.join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                      for i in range(1, len(sheet_items) + 1)) + '</Types>')
+        book.writestr("_rels/.rels", '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>')
+        workbook_sheets = ''.join(
+            f'<sheet name="{xml_escape(str(name)[:31]).replace(chr(34), "&quot;")}" sheetId="{i}" r:id="rId{i}"/>'
+            for i, (name, _) in enumerate(sheet_items, 1)
+        )
+        book.writestr("xl/workbook.xml", '<?xml version="1.0" encoding="UTF-8"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f'<sheets>{workbook_sheets}</sheets></workbook>')
+        book.writestr("xl/_rels/workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + ''.join(f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
+                      for i in range(1, len(sheet_items) + 1))
+            + '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            '</Relationships>')
+        book.writestr("xl/styles.xml", '<?xml version="1.0" encoding="UTF-8"?>'
+            '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            '<fonts count="4"><font><sz val="10"/><name val="Aptos"/><color rgb="FF18334A"/></font>'
+            '<font><b/><sz val="16"/><name val="Aptos"/><color rgb="FFFFFFFF"/></font>'
+            '<font><b/><sz val="10"/><name val="Aptos"/><color rgb="FFFFFFFF"/></font>'
+            '<font><b/><sz val="10"/><name val="Aptos"/><color rgb="FF08704E"/></font></fonts>'
+            '<fills count="6"><fill><patternFill patternType="none"/></fill>'
+            '<fill><patternFill patternType="gray125"/></fill>'
+            '<fill><patternFill patternType="solid"><fgColor rgb="FF073B34"/></patternFill></fill>'
+            '<fill><patternFill patternType="solid"><fgColor rgb="FF087A60"/></patternFill></fill>'
+            '<fill><patternFill patternType="solid"><fgColor rgb="FFF0F7F5"/></patternFill></fill>'
+            '<fill><patternFill patternType="solid"><fgColor rgb="FFDCF6E9"/></patternFill></fill></fills>'
+            '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            '<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="0" fillId="4" borderId="0" xfId="0"/>'
+            '<xf numFmtId="0" fontId="3" fillId="5" borderId="0" xfId="0"/>'
+            '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+            '</cellXfs></styleSheet>')
+        for index, (name, frame) in enumerate(sheet_items, 1):
+            data = frame.copy()
+            data.columns = [str(col).replace("_", " ").strip().title() for col in data.columns]
+            if not len(data.columns):
+                data = pd.DataFrame(columns=["Sin registros"])
+            columns = list(data.columns)
+            last = column_letter(len(columns))
+            lengths = [max([len(c)] + [len(str(v)) for v in data.iloc[:, col].dropna().head(100)]) for col, c in enumerate(columns)]
+            widths = ''.join(f'<col min="{i}" max="{i}" width="{min(max(length + 3, 14), 44)}" customWidth="1"/>'
+                             for i, length in enumerate(lengths, 1))
+            generated = datetime.now(ZoneInfo("America/Lima")).strftime("%d/%m/%Y %H:%M")
+            rows = [
+                f'<row r="1" ht="31" customHeight="1">{cell_xml("KAIRONIX SSOMA 360  |  " + str(name).upper(), "A1", 1)}</row>',
+                f'<row r="3" ht="24" customHeight="1">{cell_xml(f"Control preventivo de flota · Huachipa  |  {len(data)} registros  |  Generado: {generated}", "A3")}</row>',
+                '<row r="5" ht="26" customHeight="1">' +
+                ''.join(cell_xml(column, f"{column_letter(i)}5", 2) for i, column in enumerate(columns, 1)) + '</row>',
+            ]
+            for row_number, values in enumerate(data.itertuples(index=False, name=None), 6):
+                cells = []
+                for col_number, (column, value) in enumerate(zip(columns, values), 1):
+                    style = 3 if row_number % 2 else 0
+                    if str(column).lower() in ("resultado", "estado") and str(value).lower() in ("conforme", "subsanado", "activo"):
+                        style = 4
+                    if "porcentaje" in str(column).lower() and isinstance(value, (int, float)):
+                        style = 5
+                    cells.append(cell_xml(value, f"{column_letter(col_number)}{row_number}", style))
+                rows.append(f'<row r="{row_number}" ht="25" customHeight="1">' + ''.join(cells) + '</row>')
+            end_row = max(5, len(data) + 5)
+            worksheet = ('<?xml version="1.0" encoding="UTF-8"?>'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                f'<dimension ref="A1:{last}{end_row}"/>'
+                '<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
+                '<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>'
+                '</sheetView></sheetViews>'
+                f'<cols>{widths}</cols><sheetData>{"".join(rows)}</sheetData>'
+                f'<mergeCells count="2"><mergeCell ref="A1:{last}2"/><mergeCell ref="A3:{last}3"/></mergeCells>'
+                f'<autoFilter ref="A5:{last}{end_row}"/></worksheet>')
+            book.writestr(f"xl/worksheets/sheet{index}.xml", worksheet)
+    return output.getvalue()
 
 def normalize_dates(frame: pd.DataFrame, column: str = "fecha") -> pd.DataFrame:
     if not frame.empty and column in frame.columns:
