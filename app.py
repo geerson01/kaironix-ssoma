@@ -381,6 +381,46 @@ def sidebar(profile: dict) -> str:
         label_visibility="collapsed",
         key="main_navigation",
     )
+    # Usar el colapso nativo: Streamlit recalcula el ancho del panel al cerrar el menú.
+    components.html(
+        """<script>
+        (() => {
+          const doc = window.parent.document;
+          const storage = window.parent.sessionStorage;
+          const sidebar = '[data-testid="stSidebar"]';
+          const navigation = sidebar + ' [data-testid="stRadio"]';
+          const collapse = () => {
+            const button = doc.querySelector(sidebar + ' [data-testid="stSidebarCollapseButton"] button')
+              || doc.querySelector(sidebar + ' button[data-testid="stSidebarCollapseButton"]')
+              || doc.querySelector(sidebar + ' button[aria-label="Close sidebar"]')
+              || doc.querySelector(sidebar + ' button[aria-label="Collapse sidebar"]');
+            if (button) {
+              button.click();
+              storage.removeItem('kx-collapse-after-navigation');
+            }
+          };
+          if (storage.getItem('kx-collapse-after-navigation') === '1') {
+            setTimeout(collapse, 180);
+          }
+          const bind = () => {
+            doc.querySelectorAll(navigation + ' label').forEach(label => {
+              if (label.dataset.kxNativeCollapse === '1') return;
+              label.dataset.kxNativeCollapse = '1';
+              label.addEventListener('click', () => {
+                storage.setItem('kx-collapse-after-navigation', '1');
+                setTimeout(collapse, 220);
+              });
+            });
+          };
+          bind();
+          const observer = new MutationObserver(bind);
+          observer.observe(doc.body, {childList: true, subtree: true});
+          setTimeout(() => observer.disconnect(), 10000);
+        })();
+        </script>""",
+        height=0,
+        width=0,
+    )
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**{profile.get('nombre','Usuario')}**")
     st.sidebar.markdown(f'<span class="role-pill">{role}</span>', unsafe_allow_html=True)
