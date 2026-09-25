@@ -44,12 +44,12 @@ def apply_styles() -> None:
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {max-width:480px;margin:0 auto;padding:24px;border-radius:20px;box-shadow:0 12px 30px rgba(7,27,53,.08);}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] button {background:linear-gradient(90deg,#008f68,#00b577);border:0;color:#fff;}
         .login-secure {text-align:center;color:#607286;font-size:.8rem;margin:18px 0 14px;}.login-pilot {text-align:center;color:#008f68;font-size:.8rem;font-weight:850;}
-        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {width:100%;max-width:590px;margin:72px auto 0;padding:0 34px 30px;box-sizing:border-box;border:1px solid rgba(55,232,178,.52);border-radius:25px;background:linear-gradient(180deg,rgba(4,44,56,.96),rgba(3,25,47,.97));box-shadow:0 28px 70px rgba(0,0,0,.38);overflow:hidden;}
-        .dark-login-brand {display:flex;align-items:center;justify-content:center;gap:16px;margin:0 -34px 28px;padding:24px 28px 20px;background:linear-gradient(90deg,rgba(0,130,96,.32),rgba(3,28,50,.18));border-bottom:1px solid rgba(70,218,176,.23);}
+        [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {width:min(100%,480px)!important;max-width:480px!important;margin:clamp(24px,5vh,52px) auto 0;padding:0 28px 26px;box-sizing:border-box;border:1px solid rgba(55,232,178,.52);border-radius:23px;background:linear-gradient(180deg,rgba(4,44,56,.96),rgba(3,25,47,.97));box-shadow:0 28px 70px rgba(0,0,0,.38);overflow:hidden;}
+        .dark-login-brand {display:flex;align-items:center;justify-content:center;gap:14px;margin:0 -28px 18px;padding:20px 24px 17px;background:linear-gradient(90deg,rgba(0,130,96,.32),rgba(3,28,50,.18));border-bottom:1px solid rgba(70,218,176,.23);}
         .dark-login-brand>div:last-child {min-width:0;white-space:nowrap;}
         .dark-login-brand .login-symbol {margin:0}.dark-login-brand .kaironix-symbol {width:62px;height:62px;}
         .dark-login-brand h1 {margin:0;color:#fff;font-size:2rem;line-height:1}.dark-login-brand p {margin:6px 0 0;color:#42e3ad;font-weight:900;letter-spacing:.22em;font-size:.85rem;}
-        .dark-login-title {text-align:center;margin-bottom:24px}.dark-login-title h2 {color:#fff;font-size:1.55rem;margin:0 0 7px}.dark-login-title span {color:#90aabe;font-size:.78rem;}
+        .dark-login-title {text-align:center;margin-bottom:19px}.dark-login-title h2 {color:#fff;font-size:1.4rem;margin:0 0 5px}.dark-login-title span {color:#a8bdcb;font-size:.82rem;}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] label {color:#dce8f2;font-weight:750;}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"] {background:#061a31;border:1px solid #18d79c;border-radius:13px;box-shadow:0 0 0 3px rgba(24,215,156,.08);min-height:52px;}
         [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] div[data-baseweb="input"]:has(input[type="password"]) {border-color:#8796ff;box-shadow:0 0 0 3px rgba(135,150,255,.08);}
@@ -182,7 +182,7 @@ def apply_styles() -> None:
           .login-hero-copy {left:22px;top:24px;max-width:300px}.login-hero-copy>span {font-size:.6rem}.login-hero-copy h2 {font-size:1.7rem;margin:10px 0}.login-hero-copy p {display:none;}
           .login-hero-footer {left:22px;bottom:20px;font-size:.75rem;}
           .login-brand {margin:26px 0 16px}.login-brand h1 {font-size:2rem}.login-brand .kaironix-symbol {width:62px;height:62px;}
-          [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {width:min(100%,440px);margin:28px auto 0;padding:0 18px 24px;border-radius:20px;}
+          [data-testid="stAppViewContainer"]:has(.login-marker) div[data-testid="stForm"] {width:100%!important;max-width:440px!important;margin:28px auto 0;padding:0 18px 24px;border-radius:20px;}
           .dark-login-brand {margin:0 -18px 24px;padding:18px 12px;gap:10px}.dark-login-brand h1 {font-size:clamp(1.3rem,6vw,1.7rem)}.dark-login-brand p {font-size:.72rem;letter-spacing:.12em}.dark-login-brand .kaironix-symbol {width:46px;height:46px;}
         }
         @media (min-width: 701px) and (max-width: 1200px) {
