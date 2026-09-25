@@ -152,6 +152,7 @@ def apply_styles() -> None:
         .fleet-status.pending {color:#a56800}.fleet-status.pending span {background:#f5a623;}
         .fleet-status.ok {color:#007c54}.fleet-status.ok span {background:#00a86b;}
         .fleet-status.bad {color:#c62d25}.fleet-status.bad span {background:#e34b42;}
+        .fleet-status.workshop {color:#4256a5}.fleet-status.workshop span {background:#5266b4;}
         div[data-testid="stForm"] {background:#fff;border:1px solid #dce7e2;border-radius:18px;padding:18px;}
         .stButton>button, .stDownloadButton>button {border-radius:12px;font-weight:750;min-height:42px;}
         @media (max-width: 700px) {
