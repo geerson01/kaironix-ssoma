@@ -482,33 +482,35 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
     workshop_plates = set(workshop_units["placa"].astype(str)) if not workshop_units.empty else set()
     active_latest = latest[~latest["placa"].astype(str).isin(workshop_plates)] if not latest.empty else latest
     in_workshop = len(workshop_units)
-    inspected = len(active_latest)
-    conformes = int((active_latest.get("resultado", pd.Series(dtype=str)) == "Conforme").sum()) if not active_latest.empty else 0
-    observadas = int((active_latest.get("resultado", pd.Series(dtype=str)) == "Observada").sum()) if not active_latest.empty else 0
-    pending = max(total - inspected - in_workshop, 0)
+    inspected = len(latest)
+    active_inspected = len(active_latest)
+    conformes = int((latest.get("resultado", pd.Series(dtype=str)) == "Conforme").sum()) if not latest.empty else 0
+    observadas = int((latest.get("resultado", pd.Series(dtype=str)) == "Observada").sum()) if not latest.empty else 0
+    pending = max(total - inspected, 0)
+    active_pending = max(total - in_workshop - active_inspected, 0)
 
     cols = st.columns(4)
     cards = [
         (professional_icon("truck"), total, "Unidades registradas", f"{in_workshop} en taller"),
         ("✓", conformes, "Conformes", "Última inspección"),
         ("⚠", observadas, "Observadas", "Requieren subsanación"),
-        ("🔧", in_workshop, "Camiones en el taller", f"{pending} pendientes"),
+        ("🔧", in_workshop, "Camiones en el taller", f"{pending} sin inspección"),
     ]
     for col, card in zip(cols, cards):
         with col:
             metric_card(*card)
 
     st.write("")
-    progress_pct = round((inspected / max(total - in_workshop, 1) * 100), 1) if total > in_workshop else 0
+    progress_pct = round((inspected / total * 100), 1) if total else 0
     compliance_pct = round((conformes / inspected * 100), 1) if inspected else 0
 
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Avance de inspección")
-        progress_values = [inspected, pending, in_workshop] if total else [1]
+        progress_values = [active_inspected, active_pending, in_workshop] if total else [1]
         progress_labels = [
-            f"Inspeccionadas ({inspected})",
-            f"Pendientes ({pending})",
+            f"Inspeccionadas disponibles ({active_inspected})",
+            f"Pendientes disponibles ({active_pending})",
             f"Camiones en el taller ({in_workshop})",
         ] if total else ["Sin unidades registradas"]
         progress_colors = ["#007f68", "#cbd9d5", "#5266b4"] if total else ["#e3ebe8"]
@@ -525,7 +527,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         progress_fig.add_annotation(
             text=(
                 f"<b>{progress_pct}%</b><br>"
-                f"<span style='font-size:12px'>{inspected} de {total - in_workshop} disponibles</span>"
+                f"<span style='font-size:12px'>{inspected} de {total} con inspección</span>"
             ),
             showarrow=False,
             font=dict(size=24, color="#000000"),
@@ -542,6 +544,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         )
         if in_workshop:
             st.caption("🔧 En taller: " + ", ".join(sorted(workshop_plates)))
+            st.caption("El estado de taller se muestra por separado; las inspecciones previas siguen en el historial y en el cumplimiento.")
             if "fecha_salida_estimada" in workshop_units.columns:
                 due_dates = pd.to_datetime(workshop_units["fecha_salida_estimada"], errors="coerce")
                 overdue = workshop_units.loc[due_dates.dt.date.lt(date.today()).fillna(False)]
@@ -800,6 +803,8 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             </div>""",
             unsafe_allow_html=True,
         )
+        if is_workshop:
+            st.caption(f"Último resultado de inspección: {latest_status.get(str(selected_plate), 'Sin inspección')}. El ingreso al taller no modifica el historial ni sus evidencias.")
 
         st.markdown("### Situación de la unidad")
         workshop_fields_ready = {"diagnostico_taller", "fecha_internamiento", "fecha_salida_estimada"}.issubset(unidades.columns)
@@ -1025,9 +1030,9 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
 
     total = len(unidades)
     workshop_plates = set(unidades.loc[unidades["estado"].eq("En taller"), "placa"]) if "estado" in unidades else set()
-    conformes = sum(1 for placa in unidades.get("placa", []) if placa not in workshop_plates and latest_status.get(placa) == "Conforme")
-    observadas = sum(1 for placa in unidades.get("placa", []) if placa not in workshop_plates and latest_status.get(placa) == "Observada")
-    pendientes = max(total - conformes - observadas - len(workshop_plates), 0)
+    conformes = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Conforme")
+    observadas = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Observada")
+    pendientes = sum(1 for placa in unidades.get("placa", []) if placa not in latest_status)
     c1, c2, c3, c4 = st.columns(4)
     for col, data in zip(
         (c1, c2, c3, c4),
