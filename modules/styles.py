@@ -11,7 +11,8 @@ def apply_styles() -> None:
         [data-testid="stSidebar"] * {color:#fff;}
         [data-testid="stSidebar"] .stButton button {background:#00a86b;color:#fff;border:0;width:100%;}
         .block-container {width:100%;max-width:1500px;padding:1.5rem clamp(1rem,2.5vw,2.5rem) 3rem;box-sizing:border-box;}
-        [data-testid="stMain"], [data-testid="stMainBlockContainer"] {min-width:0;max-width:100%;}
+        [data-testid="stMain"] {flex:1 1 0;width:0;min-width:0;max-width:100%;overflow-x:hidden;}
+        [data-testid="stMainBlockContainer"] {min-width:0;max-width:100%;}
         [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {min-width:0;}
         [data-testid="stPlotlyChart"] {max-width:100%;overflow:hidden;}
         [data-testid="stImage"] img {display:block;max-width:100%;height:auto;object-fit:contain;}
