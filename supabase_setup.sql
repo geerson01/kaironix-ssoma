@@ -22,6 +22,8 @@ create table if not exists public.unidades (
   empresa text default 'RANSA',
   agencia text default 'Huachipa',
   estado text not null default 'Activo',
+  diagnostico_taller text,
+  fecha_internamiento date,
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
@@ -120,4 +122,3 @@ with check (bucket_id='evidencias');
 -- reemplaza los datos siguientes y ejecuta SOLO este INSERT:
 -- insert into public.profiles (id,nombre,email,rol,activo)
 -- values ('UUID_DE_AUTH_USERS','Geerson Llaja Escalante','TU_CORREO','Administrador',true);
-
