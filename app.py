@@ -614,6 +614,11 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         )
         if in_workshop:
             st.caption("🔧 En taller: " + ", ".join(sorted(workshop_plates)))
+            if "fecha_salida_estimada" in workshop_units.columns:
+                due_dates = pd.to_datetime(workshop_units["fecha_salida_estimada"], errors="coerce")
+                overdue = workshop_units.loc[due_dates.dt.date.lt(date.today()).fillna(False)]
+                if not overdue.empty:
+                    st.warning(f"{len(overdue)} camión(es) superaron su fecha estimada de salida: " + ", ".join(overdue["placa"].astype(str)))
 
     with c2:
         st.subheader("Cumplimiento de inspecciones")
@@ -869,13 +874,16 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
         )
 
         st.markdown("### Situación de la unidad")
-        workshop_fields_ready = {"diagnostico_taller", "fecha_internamiento"}.issubset(unidades.columns)
+        workshop_fields_ready = {"diagnostico_taller", "fecha_internamiento", "fecha_salida_estimada"}.issubset(unidades.columns)
         if not workshop_fields_ready:
-            st.warning("Para guardar taller, ejecuta primero migracion_taller.sql en Supabase SQL Editor.")
+            st.warning("Para guardar las fechas del taller, ejecuta migracion_salida_taller.sql en Supabase SQL Editor.")
         if is_workshop and workshop_fields_ready:
             admission = pd.to_datetime(unit_detail.get("fecha_internamiento"), errors="coerce")
+            estimated = pd.to_datetime(unit_detail.get("fecha_salida_estimada"), errors="coerce")
             diagnosis = str(unit_detail.get("diagnostico_taller") or "Sin diagnóstico")
-            st.info(f"🔧 Camión en el taller · Internamiento: {admission:%d/%m/%Y} · Diagnóstico: {diagnosis}" if pd.notna(admission) else f"🔧 Camión en el taller · Diagnóstico: {diagnosis}")
+            st.info(f"🔧 Camión en el taller · Internamiento: {admission:%d/%m/%Y} · Salida estimada: {estimated:%d/%m/%Y} · Diagnóstico: {diagnosis}" if pd.notna(admission) and pd.notna(estimated) else f"🔧 Camión en el taller · Diagnóstico: {diagnosis}")
+            if pd.notna(estimated) and estimated.date() < date.today():
+                st.warning(f"Salida estimada vencida hace {(date.today() - estimated.date()).days} día(s). Actualiza la previsión o registra el retorno a Activo.")
         if can_edit and workshop_fields_ready:
             with st.form(f"workshop_{unit_detail['id']}"):
                 choices = ["Activo", "En taller", "Mantenimiento", "Inactivo"]
@@ -886,13 +894,18 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                 if new_state == "En taller":
                     diagnosis_input = st.text_area("Diagnóstico del taller *", value=str(unit_detail.get("diagnostico_taller") or ""))
                     admission_input = st.date_input("Fecha de internamiento *", value=admission_date, format="DD/MM/YYYY")
+                    estimated_raw = pd.to_datetime(unit_detail.get("fecha_salida_estimada"), errors="coerce")
+                    estimated_date = estimated_raw.date() if pd.notna(estimated_raw) else None
+                    estimated_input = st.date_input("Fecha estimada de salida (puede ser futura)", value=estimated_date, format="DD/MM/YYYY")
                 if st.form_submit_button("Guardar situación", type="primary"):
                     if new_state == "En taller" and (not diagnosis_input.strip() or admission_input is None):
                         st.error("Ingresa el diagnóstico y la fecha de internamiento.")
                     elif new_state == "En taller" and admission_input > date.today():
-                        st.error("La fecha de internamiento no puede ser futura.")
+                        st.error("La fecha de internamiento indica el ingreso real. Usa 'Fecha estimada de salida' para una fecha futura.")
+                    elif new_state == "En taller" and estimated_input is not None and estimated_input < admission_input:
+                        st.error("La salida estimada debe ser igual o posterior al internamiento.")
                     else:
-                        payload = {"estado": new_state, "diagnostico_taller": diagnosis_input.strip() if new_state == "En taller" else None, "fecha_internamiento": admission_input.isoformat() if new_state == "En taller" else None}
+                        payload = {"estado": new_state, "diagnostico_taller": diagnosis_input.strip() if new_state == "En taller" else None, "fecha_internamiento": admission_input.isoformat() if new_state == "En taller" else None, "fecha_salida_estimada": estimated_input.isoformat() if new_state == "En taller" and estimated_input else None}
                         ok, message = db.update("unidades", int(unit_detail["id"]), payload)
                         (st.success if ok else st.error)("Situación actualizada." if ok else message)
                         if ok:
@@ -1111,16 +1124,19 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                 if estado == "En taller":
                     diagnostico_nuevo = st.text_area("Diagnóstico del taller *")
                     fecha_nueva = st.date_input("Fecha de internamiento *", value=None, format="DD/MM/YYYY")
+                    salida_nueva = st.date_input("Fecha estimada de salida (puede ser futura)", value=None, format="DD/MM/YYYY")
                 revision_vence = c3.date_input("Revisión técnica vence (opcional)", value=None, format="DD/MM/YYYY") if "revision_tecnica_vence" in unidades.columns else None
                 if st.form_submit_button("Guardar unidad", type="primary"):
                     if not placa:
                         st.error("Ingresa la placa.")
                     elif estado == "En taller" and (not diagnostico_nuevo.strip() or fecha_nueva is None or fecha_nueva > date.today()):
                         st.error("Ingresa un diagnóstico y una fecha de internamiento válida.")
-                    elif estado == "En taller" and not {"diagnostico_taller", "fecha_internamiento"}.issubset(unidades.columns):
-                        st.error("Ejecuta primero migracion_taller.sql en Supabase SQL Editor.")
+                    elif estado == "En taller" and salida_nueva and salida_nueva < fecha_nueva:
+                        st.error("La salida estimada debe ser igual o posterior al internamiento.")
+                    elif estado == "En taller" and not {"diagnostico_taller", "fecha_internamiento", "fecha_salida_estimada"}.issubset(unidades.columns):
+                        st.error("Ejecuta primero migracion_salida_taller.sql en Supabase SQL Editor.")
                     else:
-                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id"), **({"diagnostico_taller": diagnostico_nuevo.strip(), "fecha_internamiento": fecha_nueva.isoformat()} if estado == "En taller" else {}), **({"revision_tecnica_vence": revision_vence.isoformat()} if revision_vence else {})})
+                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id"), **({"diagnostico_taller": diagnostico_nuevo.strip(), "fecha_internamiento": fecha_nueva.isoformat(), "fecha_salida_estimada": salida_nueva.isoformat() if salida_nueva else None} if estado == "En taller" else {}), **({"revision_tecnica_vence": revision_vence.isoformat()} if revision_vence else {})})
                         (st.success if ok else st.error)(msg)
                         if ok:
                             load_all.clear(); st.rerun()
