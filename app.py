@@ -873,7 +873,7 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                 st.write(f"**Observación:** {inspection.get('observacion') or 'Sin observación'}")
                 evidence_url = str(inspection.get("evidencia_url") or "").strip()
                 if evidence_url:
-                    st.image(evidence_url, caption=f"Evidencia · {selected_plate}", width=520)
+                    st.image(evidence_url, caption=f"Evidencia · {selected_plate}", use_container_width=True)
                 else:
                     st.info("Sin evidencia fotográfica en esta inspección.")
 
