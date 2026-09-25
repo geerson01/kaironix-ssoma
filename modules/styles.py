@@ -10,7 +10,10 @@ def apply_styles() -> None:
         [data-testid="stSidebar"] {background:linear-gradient(180deg,#003f37 0%,#00634f 100%);}
         [data-testid="stSidebar"] * {color:#fff;}
         [data-testid="stSidebar"] .stButton button {background:#00a86b;color:#fff;border:0;width:100%;}
-        .block-container {max-width:1500px;padding-top:1.5rem;padding-bottom:3rem;}
+        .block-container {width:100%;max-width:1500px;padding:1.5rem clamp(1rem,2.5vw,2.5rem) 3rem;box-sizing:border-box;}
+        [data-testid="stMain"], [data-testid="stMainBlockContainer"] {min-width:0;max-width:100%;}
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {min-width:0;}
+        [data-testid="stPlotlyChart"] {max-width:100%;overflow:hidden;}
         h1,h2,h3 {color:#071b35;letter-spacing:-.02em;}
         .brand-wrap {display:flex;align-items:center;gap:11px;margin:10px 0 5px;}
         .brand-wrap .kaironix-symbol {width:48px;height:48px;flex:0 0 48px;}
@@ -177,6 +180,9 @@ def apply_styles() -> None:
           .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
           .metric-icon {width:48px;height:48px;}
           .metric-value {font-size:1.7rem;}
+        }
+        @media (max-width: 1000px) {
+          .block-container {padding-left:1rem;padding-right:1rem;}
         }
         </style>
         """,
