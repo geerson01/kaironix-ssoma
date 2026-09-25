@@ -331,8 +331,7 @@ def deduplicate_findings(frame: pd.DataFrame) -> pd.DataFrame:
 
 def login_screen() -> None:
     st.markdown('<span class="login-marker"></span>', unsafe_allow_html=True)
-    left, access, right = st.columns([1, 1.05, 1])
-    with access:
+    with st.container():
         if not auth.configured():
             st.error("El proyecto todavía no tiene configuradas las credenciales de Supabase.")
         with st.form("login_form"):
