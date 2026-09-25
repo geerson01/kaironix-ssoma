@@ -550,35 +550,40 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         else pd.DataFrame()
     )
     total = len(unidades)
-    inspected = len(latest)
-    conformes = int((latest.get("resultado", pd.Series(dtype=str)) == "Conforme").sum()) if not latest.empty else 0
-    observadas = int((latest.get("resultado", pd.Series(dtype=str)) == "Observada").sum()) if not latest.empty else 0
-    pending = max(total - inspected, 0)
+    workshop_units = unidades[unidades.get("estado", pd.Series(index=unidades.index, dtype=str)).fillna("").eq("En taller")]
+    workshop_plates = set(workshop_units["placa"].astype(str)) if not workshop_units.empty else set()
+    active_latest = latest[~latest["placa"].astype(str).isin(workshop_plates)] if not latest.empty else latest
+    in_workshop = len(workshop_units)
+    inspected = len(active_latest)
+    conformes = int((active_latest.get("resultado", pd.Series(dtype=str)) == "Conforme").sum()) if not active_latest.empty else 0
+    observadas = int((active_latest.get("resultado", pd.Series(dtype=str)) == "Observada").sum()) if not active_latest.empty else 0
+    pending = max(total - inspected - in_workshop, 0)
 
     cols = st.columns(4)
     cards = [
-        (professional_icon("truck"), total, "Unidades registradas", "Flota activa"),
+        (professional_icon("truck"), total, "Unidades registradas", f"{in_workshop} en taller"),
         ("✓", conformes, "Conformes", "Última inspección"),
         ("⚠", observadas, "Observadas", "Requieren subsanación"),
-        ("📋", inspected, "Inspeccionadas", f"{pending} pendientes"),
+        ("🔧", in_workshop, "Camiones en el taller", f"{pending} pendientes"),
     ]
     for col, card in zip(cols, cards):
         with col:
             metric_card(*card)
 
     st.write("")
-    progress_pct = round((inspected / total * 100), 1) if total else 0
+    progress_pct = round((inspected / max(total - in_workshop, 1) * 100), 1) if total > in_workshop else 0
     compliance_pct = round((conformes / inspected * 100), 1) if inspected else 0
 
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Avance de inspección")
-        progress_values = [inspected, pending] if total else [1]
+        progress_values = [inspected, pending, in_workshop] if total else [1]
         progress_labels = [
             f"Inspeccionadas ({inspected})",
             f"Pendientes ({pending})",
+            f"Camiones en el taller ({in_workshop})",
         ] if total else ["Sin unidades registradas"]
-        progress_colors = ["#007f68", "#cbd9d5"] if total else ["#e3ebe8"]
+        progress_colors = ["#007f68", "#cbd9d5", "#5266b4"] if total else ["#e3ebe8"]
         progress_fig = go.Figure(go.Pie(
             values=progress_values,
             labels=progress_labels,
@@ -592,7 +597,7 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
         progress_fig.add_annotation(
             text=(
                 f"<b>{progress_pct}%</b><br>"
-                f"<span style='font-size:12px'>{inspected} de {total} unidades</span>"
+                f"<span style='font-size:12px'>{inspected} de {total - in_workshop} disponibles</span>"
             ),
             showarrow=False,
             font=dict(size=24, color="#000000"),
@@ -607,6 +612,8 @@ def dashboard(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd.
             use_container_width=True,
             config={"displayModeBar": False, "staticPlot": True},
         )
+        if in_workshop:
+            st.caption("🔧 En taller: " + ", ".join(sorted(workshop_plates)))
 
     with c2:
         st.subheader("Cumplimiento de inspecciones")
@@ -848,8 +855,9 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             st.session_state.pop("selected_unit_plate", None)
             st.rerun()
 
-        current_status = latest_status.get(str(selected_plate), "Pendiente")
-        status_css = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending"}.get(current_status, "pending")
+        is_workshop = str(unit_detail.get("estado", "")) == "En taller"
+        current_status = "En taller" if is_workshop else latest_status.get(str(selected_plate), "Pendiente")
+        status_css = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending", "En taller": "workshop"}.get(current_status, "pending")
         st.markdown(
             f"""<div class="unit-profile-head">
               <div class="unit-profile-truck">{professional_icon("truck")}</div>
@@ -859,6 +867,37 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
             </div>""",
             unsafe_allow_html=True,
         )
+
+        st.markdown("### Situación de la unidad")
+        workshop_fields_ready = {"diagnostico_taller", "fecha_internamiento"}.issubset(unidades.columns)
+        if not workshop_fields_ready:
+            st.warning("Para guardar taller, ejecuta primero migracion_taller.sql en Supabase SQL Editor.")
+        if is_workshop and workshop_fields_ready:
+            admission = pd.to_datetime(unit_detail.get("fecha_internamiento"), errors="coerce")
+            diagnosis = str(unit_detail.get("diagnostico_taller") or "Sin diagnóstico")
+            st.info(f"🔧 Camión en el taller · Internamiento: {admission:%d/%m/%Y} · Diagnóstico: {diagnosis}" if pd.notna(admission) else f"🔧 Camión en el taller · Diagnóstico: {diagnosis}")
+        if can_edit and workshop_fields_ready:
+            with st.form(f"workshop_{unit_detail['id']}"):
+                choices = ["Activo", "En taller", "Mantenimiento", "Inactivo"]
+                current_unit_state = str(unit_detail.get("estado") or "Activo")
+                new_state = st.selectbox("Estado de la unidad", choices, index=choices.index(current_unit_state) if current_unit_state in choices else 0)
+                admission_raw = pd.to_datetime(unit_detail.get("fecha_internamiento"), errors="coerce")
+                admission_date = admission_raw.date() if pd.notna(admission_raw) else None
+                if new_state == "En taller":
+                    diagnosis_input = st.text_area("Diagnóstico del taller *", value=str(unit_detail.get("diagnostico_taller") or ""))
+                    admission_input = st.date_input("Fecha de internamiento *", value=admission_date, format="DD/MM/YYYY")
+                if st.form_submit_button("Guardar situación", type="primary"):
+                    if new_state == "En taller" and (not diagnosis_input.strip() or admission_input is None):
+                        st.error("Ingresa el diagnóstico y la fecha de internamiento.")
+                    elif new_state == "En taller" and admission_input > date.today():
+                        st.error("La fecha de internamiento no puede ser futura.")
+                    else:
+                        payload = {"estado": new_state, "diagnostico_taller": diagnosis_input.strip() if new_state == "En taller" else None, "fecha_internamiento": admission_input.isoformat() if new_state == "En taller" else None}
+                        ok, message = db.update("unidades", int(unit_detail["id"]), payload)
+                        (st.success if ok else st.error)("Situación actualizada." if ok else message)
+                        if ok:
+                            load_all.clear()
+                            st.rerun()
 
         st.markdown("### Revisión técnica")
         expiry_raw = pd.to_datetime(unit_detail.get("revision_tecnica_vence"), errors="coerce")
@@ -1044,14 +1083,15 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
         return
 
     total = len(unidades)
-    conformes = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Conforme")
-    observadas = sum(1 for placa in unidades.get("placa", []) if latest_status.get(placa) == "Observada")
-    pendientes = max(total - conformes - observadas, 0)
+    workshop_plates = set(unidades.loc[unidades["estado"].eq("En taller"), "placa"]) if "estado" in unidades else set()
+    conformes = sum(1 for placa in unidades.get("placa", []) if placa not in workshop_plates and latest_status.get(placa) == "Conforme")
+    observadas = sum(1 for placa in unidades.get("placa", []) if placa not in workshop_plates and latest_status.get(placa) == "Observada")
+    pendientes = max(total - conformes - observadas - len(workshop_plates), 0)
     c1, c2, c3, c4 = st.columns(4)
     for col, data in zip(
         (c1, c2, c3, c4),
         ((professional_icon("truck"), total, "Flota registrada", "Huachipa"), ("○", pendientes, "Pendientes", "Sin inspección"),
-         ("✓", conformes, "Conformes", "Verificación completa"), ("⚠", observadas, "Observadas", "Requieren acción")),
+         ("🔧", len(workshop_plates), "Camiones en el taller", "No disponibles"), ("⚠", observadas, "Observadas", "Requieren acción")),
     ):
         with col:
             metric_card(*data)
@@ -1067,13 +1107,20 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
                 modelo = c2.text_input("Modelo")
                 anio = c3.number_input("Año", 1990, date.today().year + 1, date.today().year)
                 agencia = c1.text_input("Agencia", value="Huachipa")
-                estado = c2.selectbox("Estado", ["Activo", "Mantenimiento", "Inactivo"])
+                estado = c2.selectbox("Estado", ["Activo", "En taller", "Mantenimiento", "Inactivo"])
+                if estado == "En taller":
+                    diagnostico_nuevo = st.text_area("Diagnóstico del taller *")
+                    fecha_nueva = st.date_input("Fecha de internamiento *", value=None, format="DD/MM/YYYY")
                 revision_vence = c3.date_input("Revisión técnica vence (opcional)", value=None, format="DD/MM/YYYY") if "revision_tecnica_vence" in unidades.columns else None
                 if st.form_submit_button("Guardar unidad", type="primary"):
                     if not placa:
                         st.error("Ingresa la placa.")
+                    elif estado == "En taller" and (not diagnostico_nuevo.strip() or fecha_nueva is None or fecha_nueva > date.today()):
+                        st.error("Ingresa un diagnóstico y una fecha de internamiento válida.")
+                    elif estado == "En taller" and not {"diagnostico_taller", "fecha_internamiento"}.issubset(unidades.columns):
+                        st.error("Ejecuta primero migracion_taller.sql en Supabase SQL Editor.")
                     else:
-                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id"), **({"revision_tecnica_vence": revision_vence.isoformat()} if revision_vence else {})})
+                        ok, msg = db.insert("unidades", {"placa": placa, "tipo": tipo, "empresa": empresa, "marca": marca, "modelo": modelo, "anio": int(anio), "agencia": agencia, "estado": estado, "created_by": auth.current_auth().get("user_id"), **({"diagnostico_taller": diagnostico_nuevo.strip(), "fecha_internamiento": fecha_nueva.isoformat()} if estado == "En taller" else {}), **({"revision_tecnica_vence": revision_vence.isoformat()} if revision_vence else {})})
                         (st.success if ok else st.error)(msg)
                         if ok:
                             load_all.clear(); st.rerun()
@@ -1104,8 +1151,8 @@ def units_page(unidades: pd.DataFrame, inspecciones: pd.DataFrame, hallazgos: pd
         cols = st.columns(4)
         for col, (_, unit) in zip(cols, view.iloc[start:start + 4].iterrows()):
             placa = str(unit.get("placa", ""))
-            status = latest_status.get(placa, "Pendiente")
-            css_status = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending"}[status]
+            status = "En taller" if placa in workshop_plates else latest_status.get(placa, "Pendiente")
+            css_status = {"Conforme": "ok", "Observada": "bad", "Pendiente": "pending", "En taller": "workshop"}[status]
             with col:
                 st.markdown(
                     f'''<div class="truck-card">
