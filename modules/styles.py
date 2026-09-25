@@ -14,6 +14,8 @@ def apply_styles() -> None:
         [data-testid="stMain"], [data-testid="stMainBlockContainer"] {min-width:0;max-width:100%;}
         [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {min-width:0;}
         [data-testid="stPlotlyChart"] {max-width:100%;overflow:hidden;}
+        [data-testid="stImage"] img {display:block;max-width:100%;height:auto;object-fit:contain;}
+        .truck-photo,.pro-icon,.kaironix-symbol {max-width:100%;height:auto;object-fit:contain;}
         h1,h2,h3 {color:#071b35;letter-spacing:-.02em;}
         .brand-wrap {display:flex;align-items:center;gap:11px;margin:10px 0 5px;}
         .brand-wrap .kaironix-symbol {width:48px;height:48px;flex:0 0 48px;}
@@ -161,6 +163,12 @@ def apply_styles() -> None:
         .stButton>button, .stDownloadButton>button {border-radius:12px;font-weight:750;min-height:42px;}
         @media (max-width: 700px) {
           .block-container {padding:1rem .8rem 2rem;}
+          [data-testid="stHorizontalBlock"] {flex-wrap:wrap;}
+          [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {flex:1 1 100%;width:100%;min-width:0;}
+          [data-testid="stPlotlyChart"], [data-testid="stPlotlyChart"] > div {width:100%;max-width:100%;}
+          .metric-card,.inventory-card,.truck-card,.panel {width:100%;max-width:100%;box-sizing:border-box;}
+          .page-title,.page-subtitle,.metric-label,.metric-hint,.truck-meta,.unit-profile-head p {overflow-wrap:anywhere;}
+          .truck-photo {object-fit:contain;}
           .page-title {font-size:1.65rem;}
           .metric-card {min-height:132px;padding:15px;}
           .metric-main {grid-template-columns:48px minmax(0,1fr);gap:10px;}
