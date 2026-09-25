@@ -24,6 +24,7 @@ create table if not exists public.unidades (
   estado text not null default 'Activo',
   diagnostico_taller text,
   fecha_internamiento date,
+  fecha_salida_estimada date,
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
