@@ -362,8 +362,8 @@ def load_session_profile() -> dict:
     current = auth.current_auth()
     if not current:
         return {}
-    if "profile" not in st.session_state:
-        st.session_state.profile = db.get_profile(current.get("user_id", ""))
+    # Revalidar el acceso en cada interacción, incluso en sesiones ya abiertas.
+    st.session_state.profile = db.get_profile(current.get("user_id", ""))
     return st.session_state.get("profile", {})
 
 
@@ -1763,6 +1763,57 @@ def users_page() -> None:
     profiles = db.select("profiles", {"order": "created_at.desc"}, admin=True)
     if not profiles.empty:
         st.dataframe(profiles[[c for c in ["nombre", "username", "correo_contacto", "rol", "activo", "created_at"] if c in profiles]], use_container_width=True, hide_index=True)
+
+
+    st.markdown("### Desactivar usuario")
+    st.caption("Bloquea el acceso a la aplicación y conserva las inspecciones e historial.")
+    current_id = auth.current_auth().get("user_id")
+    if profiles.empty:
+        return
+    candidates = profiles[
+        (profiles["activo"] == True) & (profiles["id"] != current_id)
+        & (profiles["rol"] != "Administrador")
+    ]
+    if candidates.empty:
+        st.info("No hay usuarios disponibles para desactivar.")
+        return
+    selected_id = st.selectbox(
+        "Usuario a desactivar",
+        candidates["id"].tolist(),
+        index=None,
+        placeholder="Selecciona un usuario",
+        format_func=lambda value: (
+            f"{candidates.loc[candidates['id'] == value, 'username'].iloc[0]} · "
+            f"{candidates.loc[candidates['id'] == value, 'nombre'].iloc[0]}"
+        ),
+    )
+    if selected_id is not None:
+        selected = candidates[candidates["id"] == selected_id].iloc[0]
+        confirmed = st.checkbox(
+            f"Confirmo desactivar a {selected['username']} ({selected['nombre']})",
+            key=f"confirm_deactivate_{selected_id}",
+        )
+        if st.button("Desactivar usuario", type="primary", disabled=not confirmed):
+            actor = db.get_profile(auth.current_auth().get("user_id", ""))
+            if not actor.get("activo") or actor.get("rol") != "Administrador":
+                st.error("Se requiere una cuenta administradora activa.")
+                return
+            # Verificar nuevamente el destino antes de usar permisos administrativos.
+            target = db.select("profiles", {"id": f"eq.{selected_id}", "limit": "1"}, admin=True)
+            if (target.empty or selected_id == actor.get("id")
+                    or target.iloc[0].get("rol") == "Administrador"):
+                st.error("No se puede desactivar esta cuenta.")
+                return
+            ok, msg = db.update("profiles", selected_id, {"activo": False}, admin=True)
+            if not ok:
+                st.error(msg)
+                return
+            verified = db.select("profiles", {"id": f"eq.{selected_id}", "limit": "1"}, admin=True)
+            if verified.empty or bool(verified.iloc[0].get("activo", True)):
+                st.error("No se pudo confirmar la desactivación. Actualiza y verifica el estado.")
+                return
+            st.success(f"Usuario {selected['username']} desactivado. Historial conservado.")
+            st.rerun()
 
 
 if not auth.current_auth():
