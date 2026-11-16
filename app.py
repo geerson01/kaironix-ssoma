@@ -1760,7 +1760,7 @@ def users_page() -> None:
                     ok2, msg2 = db.insert("profiles", {"id": user_id, "nombre": nombre, "username": username, "email": internal_email, "correo_contacto": contact_email.strip().lower() or None, "rol": role, "activo": True}, admin=True)
                     (st.success if ok2 else st.error)(msg2 if not ok2 else f"{msg} Rol asignado: {role}.")
                 else: st.error(msg)
-    profiles = db.select("profiles", {"order": "created_at.desc"}, admin=True)
+    profiles = db.select("profiles", {"order": "created_at.desc", "activo": "eq.true"}, admin=True)
     if not profiles.empty:
         st.dataframe(profiles[[c for c in ["nombre", "username", "correo_contacto", "rol", "activo", "created_at"] if c in profiles]], use_container_width=True, hide_index=True)
 
